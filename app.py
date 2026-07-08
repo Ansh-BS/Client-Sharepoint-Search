@@ -68,7 +68,8 @@ def admin():
     result = None
     error = None
     if request.method == "POST":
-        if request.form.get("admin_password") != os.getenv("ADMIN_PASSWORD"):
+        if not hmac.compare_digest(request.form.get("admin_password", ""),
+                                   os.getenv("ADMIN_PASSWORD")):
             error = "Wrong admin password."
         else:
             file = request.files.get("file")
