@@ -1,18 +1,34 @@
 let fuse = null;
 
+function sanitizeForExtendedSearch(query) {
+  return query
+    .split(/\s+/)
+    .map((token) => token.replace(/^['^!=]+|['$]+$/g, ""))
+    .filter((token) => token.length > 0)
+    .join(" ");
+}
+
 async function init() {
-  const res = await fetch("/api/clients");
-  if (res.status === 401) { window.location = "/login"; return; }
-  const clients = await res.json();
-  fuse = new Fuse(clients, {
-    keys: [{ name: "name", weight: 0.7 }, { name: "id", weight: 0.3 }],
-    threshold: 0.4,
-    ignoreLocation: true,
-    useExtendedSearch: true,
-  });
-  const box = document.getElementById("search");
-  box.disabled = false;
-  box.focus();
+  try {
+    const res = await fetch("/api/clients");
+    if (res.status === 401) { window.location = "/login"; return; }
+    const clients = await res.json();
+    fuse = new Fuse(clients, {
+      keys: [{ name: "name", weight: 0.7 }, { name: "id", weight: 0.3 }],
+      threshold: 0.4,
+      ignoreLocation: true,
+      useExtendedSearch: true,
+    });
+    const box = document.getElementById("search");
+    box.disabled = false;
+    box.focus();
+  } catch (err) {
+    const list = document.getElementById("results");
+    const li = document.createElement("li");
+    li.className = "error";
+    li.textContent = "Could not load client list. Check your connection and reload the page.";
+    list.appendChild(li);
+  }
 }
 
 function render(results) {
@@ -61,7 +77,7 @@ document.getElementById("search").addEventListener("input", (e) => {
     document.getElementById("results").innerHTML = "";
     return;
   }
-  render(fuse.search(q));
+  render(fuse.search(sanitizeForExtendedSearch(q)));
 });
 
 init();
