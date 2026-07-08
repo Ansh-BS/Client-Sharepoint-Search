@@ -30,3 +30,24 @@ def make_xlsx():
         wb.save(path)
         return path
     return _make
+
+
+@pytest.fixture
+def data_path(tmp_path, monkeypatch):
+    p = tmp_path / "clients.json"
+    monkeypatch.setenv("CLIENTS_JSON", str(p))
+    return p
+
+
+@pytest.fixture
+def client(data_path):
+    from app import app
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        yield c
+
+
+@pytest.fixture
+def logged_in(client):
+    client.post("/login", data={"password": "staffpw"})
+    return client
