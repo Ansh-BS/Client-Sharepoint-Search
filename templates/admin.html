@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — upload client list</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<main class="narrow">
+  <header>
+    <h1>Upload client list</h1>
+    <nav>
+      <a href="{{ url_for('index') }}">Search</a>
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </nav>
+  </header>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if result %}
+    <p class="ok">{{ result.count }} clients imported, {{ result.missing|length }} missing links.</p>
+    {% if result.missing %}
+      <details open>
+        <summary>Clients missing a SharePoint link</summary>
+        <ul>{% for name in result.missing %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+  {% endif %}
+  <form method="post" enctype="multipart/form-data">
+    <input type="password" name="admin_password" placeholder="Admin password"
+           required>
+    <input type="file" name="file" accept=".xlsx" required>
+    <button type="submit">Upload &amp; replace data</button>
+  </form>
+  <p class="hint">Expected layout: first sheet — column A Client ID,
+    column B client name, column C cell whose hyperlink is the SharePoint
+    folder. Header row is ignored.</p>
+</main>
+</body>
+</html>

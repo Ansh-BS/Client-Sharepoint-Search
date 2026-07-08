@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from flask import (Flask, jsonify, redirect, render_template, request,
                    session, url_for)
 
-from storage import load_clients
+from storage import load_clients, save_clients
+from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
 
@@ -59,6 +60,29 @@ def index():
 @staff_required
 def api_clients():
     return jsonify(load_clients())
+
+
+@app.route("/admin", methods=["GET", "POST"])
+@staff_required
+def admin():
+    result = None
+    error = None
+    if request.method == "POST":
+        if request.form.get("admin_password") != os.getenv("ADMIN_PASSWORD"):
+            error = "Wrong admin password."
+        else:
+            file = request.files.get("file")
+            if file is None or not file.filename:
+                error = "No file selected."
+            else:
+                try:
+                    clients = parse_xlsx(file)
+                    save_clients(clients)
+                    missing = [c["name"] for c in clients if not c["link"]]
+                    result = {"count": len(clients), "missing": missing}
+                except ParseError as exc:
+                    error = str(exc)
+    return render_template("admin.html", result=result, error=error)
 
 
 if __name__ == "__main__":
