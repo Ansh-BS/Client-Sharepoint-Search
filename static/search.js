@@ -53,7 +53,7 @@ function render(results) {
     id.textContent = item.id;
     info.append(name, id);
     li.appendChild(info);
-    if (item.link) {
+    if (item.link && /^https?:\/\//i.test(item.link)) {
       const a = document.createElement("a");
       a.href = item.link;
       a.target = "_blank";
