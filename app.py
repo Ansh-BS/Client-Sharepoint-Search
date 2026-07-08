@@ -1,4 +1,5 @@
 """SharePoint client search — Flask app (port 5001)."""
+import hmac
 import os
 from functools import wraps
 
@@ -34,7 +35,8 @@ def staff_required(view):
 def login():
     error = None
     if request.method == "POST":
-        if request.form.get("password") == os.getenv("STAFF_PASSWORD"):
+        if hmac.compare_digest(request.form.get("password", ""),
+                               os.getenv("STAFF_PASSWORD")):
             session["staff"] = True
             return redirect(url_for("index"))
         error = "Wrong password."
