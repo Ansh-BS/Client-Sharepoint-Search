@@ -67,8 +67,8 @@ trigram search (overkill for one spreadsheet). Fuse.js is vendored locally
 
 ## Admin upload page
 
-- Gate: admin password prompt (independent of staff session? — no: staff
-  session required first, then admin password confirms the upload action).
+- Gate: staff session required first, then admin password confirms the
+  upload action.
 - Accepts `.xlsx` with the layout above. Parsing rules:
   - Skip header row and any row with empty name.
   - Missing hyperlink → client kept, `link: null`.
