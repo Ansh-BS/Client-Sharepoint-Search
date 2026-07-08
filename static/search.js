@@ -8,6 +8,7 @@ async function init() {
     keys: [{ name: "name", weight: 0.7 }, { name: "id", weight: 0.3 }],
     threshold: 0.4,
     ignoreLocation: true,
+    useExtendedSearch: true,
   });
   const box = document.getElementById("search");
   box.disabled = false;
