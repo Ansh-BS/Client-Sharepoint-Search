@@ -18,6 +18,10 @@ button { padding: .6rem 1.2rem; font-size: 1rem; border: 0;
   border-radius: 8px; padding: .7rem .9rem; margin-bottom: .5rem; }
 #results .name { font-weight: 600; display: block; }
 #results .cid { color: #6b7280; font-size: .85rem; }
+#results li.selected { border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, .2); cursor: pointer; }
+mark.match { background: #e0e7ff; color: inherit;
+  font-weight: 700; border-radius: 3px; padding: 0 1px; }
 a.open { background: #0d9488; color: #fff; padding: .4rem .8rem;
   border-radius: 6px; text-decoration: none; font-size: .9rem;
   white-space: nowrap; }
