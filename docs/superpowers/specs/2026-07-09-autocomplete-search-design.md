@@ -84,6 +84,56 @@ between substring (now tier 2) and the existing edit-distance Fuse fallback
 Updated tier order: **1 prefix → 2 substring → 3 in-order subsequence → 4 Fuse
 fuzzy (typo tolerance)**.
 
+## Amendment 2: spelling-tolerant match tier + recent searches
+
+### A. Spelling-fault tolerance
+
+User example: typing `virpal` must surface "Veerpal Sandhu" — `virpal` vs
+`veerpal` is edit-distance 2 (1 substitution `i`→`e`, 1 insertion of `e`),
+which the existing tier-4 Fuse fallback (threshold 0.25) is too strict to
+catch, and which would score worse if compared against the *whole* name
+"Veerpal Sandhu" rather than just the first token "Veerpal".
+
+New **tier 4: word-level Levenshtein spelling match**, inserted between
+subsequence (tier 3) and the existing Fuse fallback (renumbered tier 5,
+kept as a final deterministic-miss catch-all, unchanged settings):
+
+- For each client not yet `seen`, compute Levenshtein distance between the
+  query and: the full `nameLower`, the full `idLower`, and each
+  whitespace-split token of `nameLower` (so "virpal" is compared against
+  "veerpal" alone, not "veerpal sandhu").
+- A client qualifies if its best (minimum) distance across those candidates
+  is `<= maxAllowedDistance(query.length)`, a length-scaled cap (roughly one
+  edit per ~3 characters, capped small) so short queries don't match
+  everything and long queries still get reasonable slack.
+- Only queries of length >= 3 run this tier (2-char queries + edit tolerance
+  would match almost anything).
+- Score = the winning distance (lower better); ties broken alphabetically.
+  Fills remaining slots after tiers 1-3, same pattern as other tiers.
+- Highlight: bold the *whole matched token* (or whole name/id if the winning
+  match was against the full field, not a token) — character-level highlight
+  doesn't make sense across insertions/substitutions.
+
+### B. Recent 3 searches
+
+Shown when the search box is **focused and empty** (before typing, or after
+clearing) — replaces the current "do nothing" behavior for empty queries.
+
+- Stored in `localStorage` (per-browser/device — this app shares one staff
+  login across the team, so there's no per-user account to key a
+  server-side history off; local is the sane default), key holds up to 3
+  most-recent distinct query strings, newest first, case-insensitive dedup.
+- **Recorded when a result is opened** (Enter or "Open folder" click) — not
+  on every keystroke. Only the query active at that moment is saved.
+- Recent entries render as a distinct row kind (not "no client found",
+  not a real result) — clicking or Enter-selecting one re-fills the search
+  box with that text and re-runs the tiered search immediately.
+- Existing keyboard nav (arrow keys, Enter, hover-sync) extends to cover
+  recent-entry rows the same way it covers result rows, dispatching by
+  entry kind (`recent` vs `result`) rather than assuming every row opens a
+  link.
+- No delete/clear-history control — out of scope unless requested later.
+
 ## Build workflow (per user instruction)
 
 1. Fable subagent: finalize the exact tiering/highlight/keyboard algorithm
