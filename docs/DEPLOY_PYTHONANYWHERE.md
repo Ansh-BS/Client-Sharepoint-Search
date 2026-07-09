@@ -169,6 +169,51 @@ Never commit it to git, never put it in the zip, never upload the
 spreadsheet file through the Files tab. Only this `/admin` form. The app
 writes it to `data/clients.json` on the server, which stays there.
 
+## Troubleshooting
+
+**"502 backend error" / "Something went wrong" on the site.** The WSGI
+process crashed on startup. Don't just stare at the Web tab's Error log —
+it can appear blank right after a change if you haven't clicked **Reload**
+yet. Get the real traceback directly instead:
+
+    cd ~/<project-folder-name>
+    workon venv
+    python3 -c "from app import app"
+
+If this prints a traceback, that's your real error. If it prints **nothing**,
+the import itself is fine and the problem is more likely a stale Reload or a
+field mismatch on the Web tab — re-check **Source code** / **Working
+directory** / **Virtualenv**, then Reload again.
+
+**`SystemExit: Missing required .env values: SECRET_KEY, STAFF_PASSWORD,
+ADMIN_PASSWORD`** (this is what the command above will print if `.env` isn't
+being picked up). Two likely causes, check in order:
+
+1. **`.env` isn't in the project folder.** The app loads it from the
+   **Working directory** you set on the Web tab — if you ran `nano .env`
+   from your home directory (`~`) instead of `~/<project-folder-name>`, it's
+   in the wrong place. Check both:
+
+       ls -la ~/<project-folder-name>/.env
+       ls -la ~/.env
+
+   If it turns up in your home directory instead, move it:
+
+       mv ~/.env ~/<project-folder-name>/.env
+
+2. **`.env` exists but is empty or malformed.** Confirm with:
+
+       cat ~/<project-folder-name>/.env
+
+   You should see exactly three lines, `KEY=value`, no quotes, no spaces
+   around the `=`. If it's blank, nano wasn't saved — redo it (`nano .env`,
+   type the three lines, `Ctrl+O`, **Enter**, `Ctrl+X`) and verify with
+   `cat` again immediately, don't skip that check.
+
+After fixing either case, re-run the `python3 -c "from app import app"`
+check — no output means it's fixed — then click **Reload** on the Web tab
+before reloading the site in your browser.
+
 ## Maintenance
 
 **Dormancy.** Free PythonAnywhere web apps get paused after a stretch of no
