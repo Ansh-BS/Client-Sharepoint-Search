@@ -495,4 +495,35 @@ document.getElementById("search").addEventListener("keydown", (e) => {
   }
 });
 
+const resultsList = document.getElementById("results");
+
+function setGlowPosition(li, event) {
+  const rect = li.getBoundingClientRect();
+  li.style.setProperty("--mx", ((event.clientX - rect.left) / rect.width) * 100 + "%");
+  li.style.setProperty("--my", ((event.clientY - rect.top) / rect.height) * 100 + "%");
+}
+
+resultsList.addEventListener("pointermove", (e) => {
+  const li = e.target.closest("li");
+  if (!li) return;
+  setGlowPosition(li, e);
+});
+
+resultsList.addEventListener("pointerover", (e) => {
+  const li = e.target.closest("li");
+  if (!li) return;
+  const from = e.relatedTarget instanceof Element ? e.relatedTarget.closest("li") : null;
+  if (from === li) return;
+  setGlowPosition(li, e);
+  li.classList.add("glow");
+});
+
+resultsList.addEventListener("pointerout", (e) => {
+  const li = e.target.closest("li");
+  if (!li) return;
+  const to = e.relatedTarget instanceof Element ? e.relatedTarget.closest("li") : null;
+  if (to === li) return;
+  li.classList.remove("glow");
+});
+
 init();
