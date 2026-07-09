@@ -13,6 +13,13 @@ input[type=search], input[type=password], input[type=file] {
   width: 100%; padding: .7rem .9rem; font-size: 1.05rem;
   border: 1px solid #d1d5db; border-radius: 8px;
   margin-bottom: .8rem; background: #fff; }
+.search-wrap { position: relative; }
+.search-wrap::after { content: ""; position: absolute; inset: 0;
+  border-radius: 8px; pointer-events: none; z-index: 1; opacity: 0;
+  transition: opacity .2s ease;
+  background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, .35), transparent 70%); }
+.search-wrap.glow::after { opacity: 1; }
 button { padding: .6rem 1.2rem; font-size: 1rem; border: 0;
   border-radius: 8px; background: #4f46e5; color: #fff; cursor: pointer; }
 #results { list-style: none; padding: 0; margin: 1rem 0; }

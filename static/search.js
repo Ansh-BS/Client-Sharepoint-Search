@@ -526,4 +526,23 @@ resultsList.addEventListener("pointerout", (e) => {
   li.classList.remove("glow");
 });
 
+const searchWrap = document.querySelector(".search-wrap");
+
+searchWrap.addEventListener("pointermove", (e) => {
+  const rect = searchWrap.getBoundingClientRect();
+  searchWrap.style.setProperty("--mx", ((e.clientX - rect.left) / rect.width) * 100 + "%");
+  searchWrap.style.setProperty("--my", ((e.clientY - rect.top) / rect.height) * 100 + "%");
+});
+
+searchWrap.addEventListener("pointerenter", (e) => {
+  const rect = searchWrap.getBoundingClientRect();
+  searchWrap.style.setProperty("--mx", ((e.clientX - rect.left) / rect.width) * 100 + "%");
+  searchWrap.style.setProperty("--my", ((e.clientY - rect.top) / rect.height) * 100 + "%");
+  searchWrap.classList.add("glow");
+});
+
+searchWrap.addEventListener("pointerleave", () => {
+  searchWrap.classList.remove("glow");
+});
+
 init();
