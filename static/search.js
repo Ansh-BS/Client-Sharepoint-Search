@@ -3,9 +3,14 @@ let clients = [];
 let results = [];
 let selectedIndex = -1;
 let queryLower = "";
+let lastQuery = "";
 
 const MAX_RESULTS = 8;
 const FUZZY_MIN_QUERY = 2;
+const LEV_MIN_QUERY = 3;
+const LEV_MAX_DISTANCE_CAP = 3;
+const RECENT_KEY = "sp-search:recent";
+const RECENT_MAX = 3;
 
 function isValidLink(link) {
   return link && /^https?:\/\//i.test(link);
@@ -13,6 +18,7 @@ function isValidLink(link) {
 
 function openResult(item) {
   if (item && isValidLink(item.link)) {
+    recordRecent(lastQuery);
     window.open(item.link, "_blank", "noopener");
   }
 }
@@ -25,11 +31,21 @@ async function init() {
     clients = raw.map((c) => {
       const nameStr = c.name == null ? "" : String(c.name);
       const idStr = c.id == null ? "" : String(c.id);
+      const nameTokens = [];
+      for (const match of nameStr.matchAll(/\S+/g)) {
+        const start = match.index;
+        nameTokens.push({
+          tokenLower: match[0].toLowerCase(),
+          start,
+          end: start + match[0].length,
+        });
+      }
       return Object.assign({}, c, {
         nameStr,
         idStr,
         nameLower: nameStr.toLowerCase(),
         idLower: idStr.toLowerCase(),
+        nameTokens,
       });
     });
     fuse = new Fuse(clients, {
@@ -57,6 +73,26 @@ function clearResults() {
   document.getElementById("results").innerHTML = "";
 }
 
+function showRecent() {
+  const recent = loadRecent();
+  results = recent.map((q) => ({ kind: "recent", query: q }));
+  selectedIndex = -1;
+  if (results.length === 0) {
+    // no recents: clear directly, do NOT fall through to render()'s
+    // "No client found" empty-state (that's for a non-empty query with 0 hits)
+    document.getElementById("results").innerHTML = "";
+    return;
+  }
+  render();
+}
+
+function applyRecent(query) {
+  const box = document.getElementById("search");
+  box.value = query;
+  box.focus();
+  search(query);
+}
+
 // Greedy leftmost two-pointer scan: takes the earliest field position for each
 // query char. Not guaranteed to minimize total gap, but cheap and stable, and
 // fieldScore below ranks on the positions this returns.
@@ -79,11 +115,71 @@ function fieldScore(positions) {
   return positions[0] + (positions[last] - positions[0]) - (positions.length - 1);
 }
 
+// Space-optimized Levenshtein: two rolling 1-D rows instead of a full matrix.
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  let prev = new Array(b.length + 1);
+  let curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    const tmp = prev;
+    prev = curr;
+    curr = tmp;
+  }
+  return prev[b.length];
+}
+
+function maxAllowedDistance(qLen) {
+  return Math.min(LEV_MAX_DISTANCE_CAP, Math.ceil(qLen / 4));
+}
+
+// Recent searches live in localStorage: this app shares one staff login, so
+// there's no per-user server history to key off. Every access is wrapped in
+// try/catch because storage can be disabled/unavailable and must never throw.
+function loadRecent() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const clean = parsed.filter((q) => typeof q === "string" && q.trim() !== "");
+    return clean.slice(0, RECENT_MAX);
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveRecent(list) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
+  } catch (err) {
+    // storage disabled/full — silently drop, recents are non-essential
+  }
+}
+
+function recordRecent(query) {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+  const lowered = trimmed.toLowerCase();
+  const existing = loadRecent().filter((q) => q.toLowerCase() !== lowered);
+  existing.unshift(trimmed);
+  saveRecent(existing);
+}
+
 function search(rawQuery) {
   const query = rawQuery.trim();
+  lastQuery = query;
   queryLower = query.toLowerCase();
   if (!queryLower) {
     clearResults();
+    showRecent();
     return;
   }
 
@@ -133,12 +229,67 @@ function search(rawQuery) {
     }
   }
 
+  if (results.length < MAX_RESULTS && queryLower.length >= LEV_MIN_QUERY) {
+    const maxDist = maxAllowedDistance(queryLower.length);
+    const tier4 = [];
+    for (const c of clients) {
+      if (seen.has(c)) continue;
+
+      // Name side: score each token first, then the whole field. Strictly-less-than
+      // comparison throughout means an earlier (token) win at a given distance is
+      // never overwritten by a later candidate at the same distance — so a matched
+      // token span is preferred over the equal-distance whole-field span.
+      let nameBest = Infinity;
+      let nameSpan = null;
+      for (const tok of c.nameTokens) {
+        // |len(a) - len(b)| is a lower bound on edit distance, so skip the call
+        // when that bound alone already exceeds maxDist.
+        if (Math.abs(tok.tokenLower.length - queryLower.length) > maxDist) continue;
+        const d = levenshtein(queryLower, tok.tokenLower);
+        if (d < nameBest) {
+          nameBest = d;
+          nameSpan = [tok.start, tok.end];
+        }
+      }
+      if (Math.abs(c.nameLower.length - queryLower.length) <= maxDist) {
+        const d = levenshtein(queryLower, c.nameLower);
+        if (d < nameBest) {
+          nameBest = d;
+          nameSpan = [0, c.nameStr.length];
+        }
+      }
+
+      let idBest = Infinity;
+      if (Math.abs(c.idLower.length - queryLower.length) <= maxDist) {
+        idBest = levenshtein(queryLower, c.idLower);
+      }
+
+      const score = Math.min(nameBest, idBest);
+      if (score > maxDist) continue;
+
+      tier4.push({
+        item: c,
+        tier: 4,
+        score,
+        nameSpan: nameBest <= maxDist ? nameSpan : null,
+        idSpan: idBest <= maxDist ? [0, c.idStr.length] : null,
+      });
+    }
+    tier4.sort((a, b) =>
+      a.score - b.score || a.item.nameLower.localeCompare(b.item.nameLower));
+    for (const entry of tier4) {
+      if (results.length >= MAX_RESULTS) break;
+      seen.add(entry.item);
+      results.push(entry);
+    }
+  }
+
   if (results.length < MAX_RESULTS && query.length >= FUZZY_MIN_QUERY && fuse) {
     for (const r of fuse.search(query)) {
       if (results.length >= MAX_RESULTS) break;
       if (seen.has(r.item)) continue;
       seen.add(r.item);
-      results.push({ item: r.item, tier: 4, matches: r.matches });
+      results.push({ item: r.item, tier: 5, matches: r.matches });
     }
   }
 
@@ -234,6 +385,22 @@ function render() {
   }
 
   results.forEach((entry, index) => {
+    if (entry.kind === "recent") {
+      const li = document.createElement("li");
+      li.className = "recent";
+      const label = document.createElement("span");
+      label.className = "recent-label";
+      label.textContent = "Recent";
+      const q = document.createElement("span");
+      q.className = "recent-query";
+      q.textContent = entry.query;
+      li.append(label, q);
+      li.addEventListener("click", () => applyRecent(entry.query));
+      li.addEventListener("mouseenter", () => setSelected(index));
+      list.appendChild(li);
+      return;
+    }
+
     const item = entry.item;
     const li = document.createElement("li");
 
@@ -249,6 +416,9 @@ function render() {
       fillFieldPositions(name, item.nameStr, entry.namePos);
       fillFieldPositions(id, item.idStr, entry.idPos);
     } else if (entry.tier === 4) {
+      fillField(name, item.nameStr, entry.nameSpan);
+      fillField(id, item.idStr, entry.idSpan);
+    } else if (entry.tier === 5) {
       fillField(name, item.nameStr, spanForFuzzy(entry.matches, "name"));
       fillField(id, item.idStr, spanForFuzzy(entry.matches, "id"));
     } else {
@@ -296,6 +466,10 @@ function setSelected(i) {
 
 document.getElementById("search").addEventListener("input", (e) => search(e.target.value));
 
+document.getElementById("search").addEventListener("focus", (e) => {
+  if (e.target.value.trim() === "") showRecent();
+});
+
 document.getElementById("search").addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     clearResults();
@@ -311,7 +485,12 @@ document.getElementById("search").addEventListener("keydown", (e) => {
   } else if (e.key === "Enter") {
     e.preventDefault();
     if (selectedIndex >= 0 && results[selectedIndex]) {
-      openResult(results[selectedIndex].item);
+      const entry = results[selectedIndex];
+      if (entry.kind === "recent") {
+        applyRecent(entry.query);
+      } else {
+        openResult(entry.item);
+      }
     }
   }
 });
