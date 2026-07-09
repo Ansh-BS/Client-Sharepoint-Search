@@ -57,6 +57,28 @@ function clearResults() {
   document.getElementById("results").innerHTML = "";
 }
 
+// Greedy leftmost two-pointer scan: takes the earliest field position for each
+// query char. Not guaranteed to minimize total gap, but cheap and stable, and
+// fieldScore below ranks on the positions this returns.
+function subsequencePositions(qLower, fieldLower) {
+  if (qLower.length === 0 || qLower.length > fieldLower.length) return null;
+  const positions = [];
+  let qi = 0;
+  for (let fi = 0; fi < fieldLower.length; fi++) {
+    if (fieldLower[fi] === qLower[qi]) {
+      positions.push(fi);
+      qi++;
+      if (qi === qLower.length) return positions;
+    }
+  }
+  return null;
+}
+
+function fieldScore(positions) {
+  const last = positions.length - 1;
+  return positions[0] + (positions[last] - positions[0]) - (positions.length - 1);
+}
+
 function search(rawQuery) {
   const query = rawQuery.trim();
   queryLower = query.toLowerCase();
@@ -90,12 +112,33 @@ function search(rawQuery) {
   tier2.sort((a, b) => a.item.nameLower.localeCompare(b.item.nameLower));
   results = tier1.concat(tier2).slice(0, MAX_RESULTS);
 
+  if (results.length < MAX_RESULTS) {
+    const tier3 = [];
+    for (const c of clients) {
+      if (seen.has(c)) continue;
+      const namePos = subsequencePositions(queryLower, c.nameLower);
+      const idPos = subsequencePositions(queryLower, c.idLower);
+      if (!namePos && !idPos) continue;
+      let score = Infinity;
+      if (namePos) score = Math.min(score, fieldScore(namePos));
+      if (idPos) score = Math.min(score, fieldScore(idPos));
+      tier3.push({ item: c, tier: 3, namePos, idPos, score });
+    }
+    tier3.sort((a, b) =>
+      a.score - b.score || a.item.nameLower.localeCompare(b.item.nameLower));
+    for (const entry of tier3) {
+      if (results.length >= MAX_RESULTS) break;
+      seen.add(entry.item);
+      results.push(entry);
+    }
+  }
+
   if (results.length < MAX_RESULTS && query.length >= FUZZY_MIN_QUERY && fuse) {
     for (const r of fuse.search(query)) {
       if (results.length >= MAX_RESULTS) break;
       if (seen.has(r.item)) continue;
       seen.add(r.item);
-      results.push({ item: r.item, tier: 3, matches: r.matches });
+      results.push({ item: r.item, tier: 4, matches: r.matches });
     }
   }
 
@@ -142,6 +185,43 @@ function fillField(el, text, span) {
   if (after) el.appendChild(document.createTextNode(after));
 }
 
+function fillFieldPositions(el, text, positions) {
+  el.textContent = "";
+  if (!positions || !positions.length) {
+    el.textContent = text;
+    return;
+  }
+  // positions is ascending; coalesce consecutive matched indices into one <mark>
+  const matched = new Set(positions);
+  let buffer = "";
+  let markText = "";
+  for (let i = 0; i < text.length; i++) {
+    if (matched.has(i)) {
+      if (buffer) {
+        el.appendChild(document.createTextNode(buffer));
+        buffer = "";
+      }
+      markText += text[i];
+    } else {
+      if (markText) {
+        const mark = document.createElement("mark");
+        mark.className = "match";
+        mark.textContent = markText;
+        el.appendChild(mark);
+        markText = "";
+      }
+      buffer += text[i];
+    }
+  }
+  if (markText) {
+    const mark = document.createElement("mark");
+    mark.className = "match";
+    mark.textContent = markText;
+    el.appendChild(mark);
+  }
+  if (buffer) el.appendChild(document.createTextNode(buffer));
+}
+
 function render() {
   const list = document.getElementById("results");
   list.innerHTML = "";
@@ -162,17 +242,19 @@ function render() {
 
     const name = document.createElement("span");
     name.className = "name";
-    const nameSpan = entry.tier === 3
-      ? spanForFuzzy(entry.matches, "name")
-      : spanForPlain(item.nameLower);
-    fillField(name, item.nameStr, nameSpan);
-
     const id = document.createElement("span");
     id.className = "cid";
-    const idSpan = entry.tier === 3
-      ? spanForFuzzy(entry.matches, "id")
-      : spanForPlain(item.idLower);
-    fillField(id, item.idStr, idSpan);
+
+    if (entry.tier === 3) {
+      fillFieldPositions(name, item.nameStr, entry.namePos);
+      fillFieldPositions(id, item.idStr, entry.idPos);
+    } else if (entry.tier === 4) {
+      fillField(name, item.nameStr, spanForFuzzy(entry.matches, "name"));
+      fillField(id, item.idStr, spanForFuzzy(entry.matches, "id"));
+    } else {
+      fillField(name, item.nameStr, spanForPlain(item.nameLower));
+      fillField(id, item.idStr, spanForPlain(item.idLower));
+    }
 
     info.append(name, id);
     li.appendChild(info);
