@@ -1,4 +1,4 @@
-# SharePoint Client Search
+# Client SharePoint Search
 
 Internal staff site: type a client name (typos fine) or Client ID, get
 fuzzy-matched suggestions with a button to the client's SharePoint folder.

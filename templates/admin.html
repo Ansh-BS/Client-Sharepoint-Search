@@ -3,13 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin — upload client list</title>
+<title>Admin — Client SharePoint Search</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <main class="narrow">
   <header>
-    <h1>Upload client list</h1>
+    <div class="brand">
+      <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="Benison Solvers">
+      <h1>Upload client list</h1>
+    </div>
     <nav>
       <a href="{{ url_for('index') }}">Search</a>
       <a href="{{ url_for('logout') }}">Log out</a>

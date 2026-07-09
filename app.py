@@ -1,4 +1,4 @@
-"""SharePoint client search — Flask app (port 5001)."""
+"""Client SharePoint Search — Flask app (port 5001)."""
 import hmac
 import os
 from functools import wraps
@@ -6,6 +6,8 @@ from functools import wraps
 from dotenv import load_dotenv
 from flask import (Flask, jsonify, redirect, render_template, request,
                    session, url_for)
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from storage import load_clients, save_clients
 from xlsx_parser import ParseError, parse_xlsx
@@ -20,6 +22,35 @@ if _missing:
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Default True (fail-safe). Set SESSION_COOKIE_SECURE=false in .env for
+# non-HTTPS testing. http://127.0.0.1 is a secure context in browsers,
+# so the default works for local dev.
+app.config["SESSION_COOKIE_SECURE"] = (
+    os.getenv("SESSION_COOKIE_SECURE", "true").strip().lower() != "false")
+
+limiter = Limiter(get_remote_address, app=app, default_limits=[],
+                   storage_uri="memory://")
+
+
+@app.after_request
+def set_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; style-src 'self'; script-src 'self'; "
+        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+    # Only honoured over HTTPS; harmless on plain HTTP.
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains")
+    if response.mimetype == "text/html":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 
 def staff_required(view):
     @wraps(view)
@@ -33,6 +64,7 @@ def staff_required(view):
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per 15 minutes", methods=["POST"])
 def login():
     error = None
     if request.method == "POST":
@@ -63,6 +95,7 @@ def api_clients():
 
 
 @app.route("/admin", methods=["GET", "POST"])
+@limiter.limit("10 per 15 minutes", methods=["POST"])
 @staff_required
 def admin():
     result = None

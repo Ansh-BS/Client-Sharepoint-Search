@@ -3,7 +3,10 @@ body { margin: 0; font-family: system-ui, sans-serif;
   background: #f5f6f8; color: #1a1d24; }
 main { max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
 main.narrow { max-width: 400px; }
-header { display: flex; justify-content: space-between; align-items: baseline; }
+header { display: flex; justify-content: space-between; align-items: center; }
+.brand { display: flex; align-items: center; gap: .6rem; }
+.logo { height: 40px; width: auto; display: block; }
+.logo-standalone { height: 56px; margin-bottom: 1rem; }
 h1 { font-size: 1.4rem; }
 nav a { margin-left: 1rem; font-size: .9rem; color: #4b5563; }
 input[type=search], input[type=password], input[type=file] {

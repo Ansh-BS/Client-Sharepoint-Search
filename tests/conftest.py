@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("STAFF_PASSWORD", "staffpw")
 os.environ.setdefault("ADMIN_PASSWORD", "adminpw")
+os.environ.setdefault("SESSION_COOKIE_SECURE", "false")
 
 import openpyxl
 import pytest
@@ -41,8 +42,9 @@ def data_path(tmp_path, monkeypatch):
 
 @pytest.fixture
 def client(data_path):
-    from app import app
+    from app import app, limiter
     app.config["TESTING"] = True
+    limiter.enabled = False
     with app.test_client() as c:
         yield c
 

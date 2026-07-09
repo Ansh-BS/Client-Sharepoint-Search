@@ -9,7 +9,10 @@
 <body>
 <main>
   <header>
-    <h1>Client SharePoint Search</h1>
+    <div class="brand">
+      <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="Benison Solvers">
+      <h1>Client SharePoint Search</h1>
+    </div>
     <nav>
       <a href="{{ url_for('admin') }}">Admin</a>
       <a href="{{ url_for('logout') }}">Log out</a>
