@@ -15,18 +15,27 @@ Throughout, replace `<your-username>` with your PythonAnywhere username and
 
 ## What you are copying up
 
-Five files changed. Nothing else needs to move.
+Six files changed. Nothing else needs to move.
 
 | # | File on your PC | Same path on the server |
 |---|---|---|
-| 1 | `static/style.css` | `/home/<your-username>/<project-folder-name>/static/style.css` |
-| 2 | `static/search.js` | `/home/<your-username>/<project-folder-name>/static/search.js` |
-| 3 | `templates/index.html` | `/home/<your-username>/<project-folder-name>/templates/index.html` |
-| 4 | `templates/login.html` | `/home/<your-username>/<project-folder-name>/templates/login.html` |
-| 5 | `templates/admin.html` | `/home/<your-username>/<project-folder-name>/templates/admin.html` |
+| 1 | `app.py` | `/home/<your-username>/<project-folder-name>/app.py` |
+| 2 | `static/style.css` | `/home/<your-username>/<project-folder-name>/static/style.css` |
+| 3 | `static/search.js` | `/home/<your-username>/<project-folder-name>/static/search.js` |
+| 4 | `templates/index.html` | `/home/<your-username>/<project-folder-name>/templates/index.html` |
+| 5 | `templates/login.html` | `/home/<your-username>/<project-folder-name>/templates/login.html` |
+| 6 | `templates/admin.html` | `/home/<your-username>/<project-folder-name>/templates/admin.html` |
+
+**All six or none.** `app.py` now sets `ASSET_VERSION`, and the three
+templates read it to tag the stylesheet and script as `?v=2`. Copy the
+templates without `app.py` and the tag renders empty, which breaks the
+cache fix — so don't stop halfway.
 
 `PRODUCT.md` also changed, but it is documentation with no effect at
 runtime. Skip it — the server never reads it.
+
+No new packages were added, so you do **not** need to re-run
+`pip install`.
 
 ## What you must NOT touch
 
@@ -38,9 +47,7 @@ secrets:
 - **`data/clients.json`** — the real client list you uploaded through
   `/admin`. This is the live data. Nothing in this update changes it.
 
-No Python code changed in this update, so `app.py`, `storage.py`, and
-`xlsx_parser.py` stay as they are. No new packages either — you do **not**
-need to re-run `pip install`.
+`storage.py` and `xlsx_parser.py` are unchanged — leave them alone too.
 
 ---
 
@@ -81,10 +88,9 @@ Editing files changes nothing on the live site until you reload it.
 
 ## 4. Verify it actually worked
 
-Open `https://<your-username>.pythonanywhere.com` and **hard-refresh** with
-`Ctrl+F5` (see the stale-file note in Troubleshooting — a normal refresh
-can serve you the old CSS and JS from your browser cache and make a
-perfectly good deploy look broken).
+Open `https://<your-username>.pythonanywhere.com`. A normal refresh is
+enough — the `?v=2` tag means browsers cannot serve you a stale stylesheet
+or script.
 
 Walk the five checks:
 
@@ -106,27 +112,23 @@ If all five behave, the update is live.
 
 ### The site looks half-broken, or the new behaviour is missing
 
-Almost always a **stale cached file**, not a failed deploy. The page
-references `style.css` and `search.js` by a plain name with no version
-number, so browsers happily reuse the copies they already have.
+The page now requests `style.css?v=2` and `search.js?v=2`. Because the URL
+changed, every browser — yours and your colleagues' — is forced to fetch
+the new files. Nobody needs to hard-refresh. That is the whole point of the
+tag.
 
-Fix in this order:
+So if the site still looks wrong, suspect a **failed paste**, not a cache.
+Check what the server is actually holding:
 
-1. **Hard-refresh**: `Ctrl+F5` (or `Ctrl+Shift+R`).
-2. Still stale? Open the file directly to see which version the server is
-   actually sending:
-   `https://<your-username>.pythonanywhere.com/static/style.css`
-   — if you see `--action: #0f766e` near the top, the server has the new
-   file and the problem is purely your browser's cache. Clear it, or try a
-   private window.
-3. If that URL shows the **old** file, the paste didn't save. Go back to
-   the Files tab, reopen it, confirm the contents, Save, and Reload again.
+    https://<your-username>.pythonanywhere.com/static/style.css?v=2
 
-Worth knowing: **your colleagues will hit this too.** Their browsers will
-keep the old CSS/JS until it expires. Tell them to hard-refresh once, or
-ask me to add a version tag (`style.css?v=2`) to the templates, which
-forces every browser to fetch fresh files and removes the problem
-permanently.
+If you see `--action: #0f766e` near the top, the server has the new file.
+If you see the old file, that paste didn't save — reopen it on the Files
+tab, confirm the contents, Save, and Reload.
+
+Then view the page source (`Ctrl+U`) and check the stylesheet link really
+says `?v=2`. If it says plain `style.css` with no tag, you copied the
+templates but **not `app.py`** — go back and do that one too.
 
 ### "Something went wrong" / 502 error page
 
@@ -161,6 +163,21 @@ The two commits in this update are:
 - `790f863` — WCAG AA contrast, focus rings, design tokens, states that teach
 
 ---
+
+## Next time you change the CSS or the JS
+
+**Bump `ASSET_VERSION` in `app.py` before you deploy.**
+
+    ASSET_VERSION = "2"    ->    ASSET_VERSION = "3"
+
+That one number is what forces every staff browser to fetch the new
+stylesheet and script. Change `style.css` or `search.js` without bumping it
+and your colleagues keep running the old files — the site will look
+unchanged to them and correct to you, which is a miserable thing to debug.
+
+Only that one line needs editing; the three templates read it
+automatically. If a deploy touches neither `style.css` nor `search.js`,
+leave the number alone.
 
 ## This route gets painful — a note for next time
 
