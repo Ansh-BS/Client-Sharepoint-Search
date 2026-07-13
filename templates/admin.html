@@ -29,9 +29,11 @@
     {% endif %}
   {% endif %}
   <form method="post" enctype="multipart/form-data">
-    <input type="password" name="admin_password" placeholder="Admin password"
-           required>
-    <input type="file" name="file" accept=".xlsx" required>
+    <label class="sr-only" for="admin_password">Admin password</label>
+    <input id="admin_password" type="password" name="admin_password"
+           placeholder="Admin password" autocomplete="current-password" required>
+    <label class="sr-only" for="file">Client spreadsheet (.xlsx)</label>
+    <input id="file" type="file" name="file" accept=".xlsx" required>
     <button type="submit">Upload &amp; replace data</button>
   </form>
   <p class="hint">Expected layout: first sheet — column A Client ID,

@@ -19,14 +19,60 @@ function isValidLink(link) {
 function openResult(item) {
   if (item && isValidLink(item.link)) {
     recordRecent(lastQuery);
+    announce("Opening the SharePoint folder for " + item.nameStr + ".");
     window.open(item.link, "_blank", "noopener");
   }
 }
 
+// Screen-reader channel. The results list is visual; this is how a non-sighted
+// user learns how many matched, and why Enter refused.
+function announce(message) {
+  document.getElementById("status").textContent = message;
+}
+
+function setExpanded(open) {
+  document.getElementById("search").setAttribute("aria-expanded", String(open));
+}
+
+// A state row is a message, not a choice: role=presentation keeps it out of the
+// listbox's options so assistive tech doesn't offer it as something selectable.
+function stateRow(title, body) {
+  const li = document.createElement("li");
+  li.className = "state";
+  li.setAttribute("role", "presentation");
+  const t = document.createElement("span");
+  t.className = "state-title";
+  t.textContent = title;
+  li.appendChild(t);
+  if (body) {
+    const b = document.createElement("span");
+    b.className = "state-body";
+    b.textContent = body;
+    li.appendChild(b);
+  }
+  return li;
+}
+
+function showSkeleton() {
+  const list = document.getElementById("results");
+  list.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const li = document.createElement("li");
+    li.className = "skeleton";
+    li.setAttribute("role", "presentation");
+    list.appendChild(li);
+  }
+}
+
 async function init() {
+  const box = document.getElementById("search");
+  box.placeholder = "Loading client list…";
+  showSkeleton();
+  announce("Loading the client list.");
   try {
     const res = await fetch("/api/clients");
     if (res.status === 401) { window.location = "/login"; return; }
+    if (!res.ok) throw new Error("HTTP " + res.status);
     const raw = await res.json();
     clients = raw.map((c) => {
       const nameStr = c.name == null ? "" : String(c.name);
@@ -55,15 +101,22 @@ async function init() {
       includeScore: true,
       includeMatches: true,
     });
-    const box = document.getElementById("search");
+    document.getElementById("results").innerHTML = "";
     box.disabled = false;
+    box.placeholder = "Type a client name or ID…";
     box.focus();
+    announce(clients.length + " clients ready to search.");
   } catch (err) {
     const list = document.getElementById("results");
-    const li = document.createElement("li");
-    li.className = "error";
-    li.textContent = "Could not load client list. Check your connection and reload the page.";
-    list.appendChild(li);
+    list.innerHTML = "";
+    box.placeholder = "Client list unavailable";
+    const row = stateRow(
+      "Could not load the client list.",
+      "Check your connection, then reload the page. If it keeps failing, the "
+        + "client list may need re-uploading on the Admin page.");
+    row.classList.add("error");
+    list.appendChild(row);
+    announce("Could not load the client list. Reload the page to try again.");
   }
 }
 
@@ -71,6 +124,8 @@ function clearResults() {
   results = [];
   selectedIndex = -1;
   document.getElementById("results").innerHTML = "";
+  document.getElementById("search").removeAttribute("aria-activedescendant");
+  setExpanded(false);
 }
 
 function showRecent() {
@@ -79,8 +134,9 @@ function showRecent() {
   selectedIndex = -1;
   if (results.length === 0) {
     // no recents: clear directly, do NOT fall through to render()'s
-    // "No client found" empty-state (that's for a non-empty query with 0 hits)
+    // no-match empty state (that's for a non-empty query with 0 hits)
     document.getElementById("results").innerHTML = "";
+    setExpanded(false);
     return;
   }
   render();
@@ -174,6 +230,7 @@ function recordRecent(query) {
 }
 
 function search(rawQuery) {
+  clearFeedback(); // a new keystroke retracts the last refusal
   const query = rawQuery.trim();
   lastQuery = query;
   queryLower = query.toLowerCase();
@@ -307,7 +364,10 @@ function exactMatches(rawQuery) {
 
 let shakeTimer = null;
 
-function shakeSearch() {
+// The shake alone only says "no". The message says why, and what to do instead.
+// #feedback is role=alert, so the same text reaches a screen reader.
+function shakeSearch(reason) {
+  document.getElementById("feedback").textContent = reason || "";
   if (shakeTimer) clearTimeout(shakeTimer);
   searchWrap.classList.remove("shake");
   void searchWrap.offsetWidth; // reflow, so a repeated Enter restarts the animation
@@ -316,6 +376,10 @@ function shakeSearch() {
     searchWrap.classList.remove("shake");
     shakeTimer = null;
   }, 400);
+}
+
+function clearFeedback() {
+  document.getElementById("feedback").textContent = "";
 }
 
 function spanForPlain(fieldLower) {
@@ -397,22 +461,40 @@ function fillFieldPositions(el, text, positions) {
 function render() {
   const list = document.getElementById("results");
   list.innerHTML = "";
+  document.getElementById("search").removeAttribute("aria-activedescendant");
+
   if (!results.length) {
-    const li = document.createElement("li");
-    li.className = "empty";
-    li.textContent = "No client found";
-    list.appendChild(li);
+    list.appendChild(stateRow(
+      "No client matches “" + lastQuery + "”.",
+      "Try fewer letters, or part of the surname. If they're a new client, "
+        + "their folder may not be in the list yet — a new spreadsheet can be "
+        + "uploaded on the Admin page."));
+    setExpanded(false);
+    announce("No client matches " + lastQuery + ".");
     return;
+  }
+
+  setExpanded(true);
+  if (results[0] && results[0].kind === "recent") {
+    announce(results.length + " recent searches.");
+  } else {
+    announce(results.length + (results.length === 1 ? " client matches "
+      : " clients match ") + lastQuery
+      + ". Use the arrow keys to review them.");
   }
 
   // Hover deliberately does NOT set selectedIndex: that's keyboard-navigation
   // state, and a pointer passing over the list used to leave a row selected
   // with no way to clear it, so Enter opened a stale row. Hover feedback is the
   // pure-CSS .glow effect below.
-  results.forEach((entry) => {
+  results.forEach((entry, index) => {
     if (entry.kind === "recent") {
       const li = document.createElement("li");
       li.className = "recent";
+      li.id = "opt-" + index;
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", "false");
+      li.setAttribute("aria-label", "Recent search: " + entry.query);
       const label = document.createElement("span");
       label.className = "recent-label";
       label.textContent = "Recent";
@@ -427,6 +509,11 @@ function render() {
 
     const item = entry.item;
     const li = document.createElement("li");
+    li.id = "opt-" + index;
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", "false");
+    li.setAttribute("aria-label", item.nameStr + ", client ID " + item.idStr
+      + (isValidLink(item.link) ? "" : ", no SharePoint link on file"));
 
     const info = document.createElement("div");
     info.className = "info";
@@ -460,6 +547,10 @@ function render() {
       a.rel = "noopener";
       a.className = "open";
       a.textContent = "Open folder";
+      // The row is a listbox option, which may not contain tab stops. Keyboard
+      // users reach this via Arrow + Enter; the anchor stays for the mouse.
+      a.tabIndex = -1;
+      a.setAttribute("aria-label", "Open SharePoint folder for " + item.nameStr);
       a.addEventListener("click", (e) => { e.preventDefault(); openResult(item); });
       li.appendChild(a);
     } else {
@@ -474,16 +565,22 @@ function render() {
 }
 
 function setSelected(i) {
+  const box = document.getElementById("search");
   const lis = document.getElementById("results").querySelectorAll("li");
   if (selectedIndex >= 0 && lis[selectedIndex]) {
     lis[selectedIndex].classList.remove("selected");
-    lis[selectedIndex].removeAttribute("aria-selected");
+    lis[selectedIndex].setAttribute("aria-selected", "false");
   }
   selectedIndex = i;
   if (i >= 0 && lis[i]) {
     lis[i].classList.add("selected");
     lis[i].setAttribute("aria-selected", "true");
     lis[i].scrollIntoView({ block: "nearest" });
+    // aria-activedescendant keeps DOM focus in the input while announcing the
+    // highlighted option — the standard combobox pattern.
+    box.setAttribute("aria-activedescendant", lis[i].id);
+  } else {
+    box.removeAttribute("aria-activedescendant");
   }
 }
 
@@ -511,12 +608,21 @@ document.getElementById("search").addEventListener("keydown", (e) => {
       }
       return;
     }
-    // Two clients sharing a name is ambiguous — show both, never guess.
+    // Refusing is a decision, so say why. Silence would read as a broken key.
     const exact = exactMatches(e.target.value);
     if (exact.length === 1 && isValidLink(exact[0].link)) {
       openResult(exact[0]);
+    } else if (exact.length === 1) {
+      shakeSearch("There's no SharePoint link on file for " + exact[0].nameStr
+        + ". Ask an admin to add it to the spreadsheet.");
+    } else if (exact.length > 1) {
+      shakeSearch("More than one client matches that exactly. Pick the right "
+        + "one from the list below.");
+    } else if (results.length) {
+      shakeSearch("That isn't a full client name or ID. Choose one from the "
+        + "list with the arrow keys, or click it.");
     } else {
-      shakeSearch();
+      shakeSearch("No client matches that. Check the spelling.");
     }
     return;
   }

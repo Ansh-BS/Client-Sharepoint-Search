@@ -18,11 +18,25 @@
       <a href="{{ url_for('logout') }}">Log out</a>
     </nav>
   </header>
+
+  <label class="sr-only" for="search">Search clients by name or Client ID</label>
   <div class="search-wrap">
     <input id="search" type="search" placeholder="Type a client name or ID…"
-           autocomplete="off" disabled>
+           autocomplete="off" disabled
+           role="combobox" aria-expanded="false" aria-controls="results"
+           aria-autocomplete="list" aria-describedby="search-hint">
   </div>
-  <ul id="results"></ul>
+  <div class="search-msg">
+    <p class="feedback" id="feedback" role="alert"></p>
+    <p class="search-hint" id="search-hint">
+      Type a full name or Client ID and press <kbd>Enter</kbd> to open the folder.
+      Partial names and typos still find matches — pick one with
+      <kbd>↑</kbd> <kbd>↓</kbd> then <kbd>Enter</kbd>, or click it.
+    </p>
+  </div>
+
+  <ul id="results" role="listbox" aria-label="Matching clients"></ul>
+  <p id="status" class="sr-only" role="status" aria-live="polite"></p>
 </main>
 <script src="{{ url_for('static', filename='fuse.min.js') }}"></script>
 <script src="{{ url_for('static', filename='search.js') }}"></script>

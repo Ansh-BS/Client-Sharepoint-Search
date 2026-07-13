@@ -1,27 +1,94 @@
+:root {
+  /* Surfaces */
+  --bg: #f5f6f8;
+  --surface: #fff;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+
+  /* Ink. --muted clears 4.5:1 on both --surface and --bg; #6b7280 did not. */
+  --ink: #1a1d24;
+  --ink-soft: #4b5563;
+  --muted: #5f6672;
+  --on-accent: #fff;
+
+  /* Brand. Indigo = selection / focus / match. Teal = the one primary action. */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-active: #3730a3;
+  --accent-disabled: #a5b4fc;
+  --accent-soft: #e0e7ff;
+  --accent-ring: rgba(79, 70, 229, .35);
+  --action: #0f766e;
+  --action-hover: #115e59;
+
+  /* Loading */
+  --skeleton: #eceef2;
+  --skeleton-sheen: #f4f5f7;
+
+  /* Semantic */
+  --danger: #b91c1c;
+  --danger-line: #dc2626;
+  --warn-ink: #b45309;
+  --warn-bg: #fef3c7;
+  --ok: #15803d;
+
+  /* Scale */
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .7rem;
+  --sp-4: 1rem; --sp-6: 1.5rem; --sp-8: 2rem;
+  --radius: 8px;
+  --radius-sm: 6px;
+
+  /* Motion */
+  --dur: 180ms;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+}
+
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif;
-  background: #f5f6f8; color: #1a1d24; }
-main { max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
+  background: var(--bg); color: var(--ink); }
+main { max-width: 640px; margin: var(--sp-8) auto var(--sp-6); padding: 0 var(--sp-4); }
 main.narrow { max-width: 400px; }
-header { display: flex; justify-content: space-between; align-items: center; }
+header { display: flex; justify-content: space-between; align-items: center;
+  gap: var(--sp-4); flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: .6rem; }
 .logo { height: 40px; width: auto; display: block; }
-.logo-standalone { height: 56px; margin-bottom: 1rem; }
+.logo-standalone { height: 56px; margin-bottom: var(--sp-4); }
 h1 { font-size: 1.4rem; }
-nav a { margin-left: 1rem; font-size: .9rem; color: #4b5563; }
+nav a { margin-left: var(--sp-4); font-size: .9rem; color: var(--ink-soft);
+  border-radius: var(--radius-sm); }
+
+/* Focus. Every interactive element gets the same ring; never removed. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
 input[type=search], input[type=password], input[type=file] {
-  width: 100%; padding: .7rem .9rem; font-size: 1.05rem;
-  border: 1px solid #d1d5db; border-radius: 8px;
-  margin-bottom: .8rem; background: #fff; }
+  width: 100%; padding: var(--sp-3) .9rem; font-size: 1.05rem;
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  margin-bottom: var(--sp-2); background: var(--surface); color: var(--ink);
+  transition: border-color var(--dur) var(--ease-out),
+              box-shadow var(--dur) var(--ease-out); }
+input::placeholder { color: var(--muted); opacity: 1; }
+input[type=search]:focus-visible, input[type=password]:focus-visible,
+input[type=file]:focus-visible {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring); }
+input[type=search]:disabled { background: var(--bg); cursor: wait; }
+
 .search-wrap { position: relative; }
 .search-wrap::after { content: ""; position: absolute; inset: 0;
-  border-radius: 8px; pointer-events: none; z-index: 1; opacity: 0;
-  transition: opacity .2s ease;
+  border-radius: var(--radius); pointer-events: none; z-index: 1; opacity: 0;
+  transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
     rgba(255, 255, 255, .35), transparent 70%); }
 .search-wrap.glow::after { opacity: 1; }
-.search-wrap.shake { animation: shake .35s ease; }
-.search-wrap.shake input { border-color: #dc2626; }
+
+/* Enter with no exact match: the box refuses, visibly. Motion carries the
+   message; the border carries it again for anyone who can't see the motion. */
+.search-wrap.shake { animation: shake .35s var(--ease-out); }
+.search-wrap.shake input { border-color: var(--danger-line);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .18); }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-5px); }
@@ -29,38 +96,93 @@ input[type=search], input[type=password], input[type=file] {
   60% { transform: translateX(-3px); }
   80% { transform: translateX(3px); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .search-wrap.shake { animation: none; }
-}
+
+/* One reserved slot below the box. By default it holds the hint (what Enter
+   does, no tutorial needed). A refusal replaces the hint in place rather than
+   pushing it down, so nothing on the page moves when a message appears. */
+.search-msg { min-height: 2.7rem; margin: 0 0 var(--sp-4); }
+.search-msg > p { margin: 0; }
+.feedback { color: var(--danger); font-size: .9rem; }
+.feedback:empty { display: none; }
+.search-msg:has(.feedback:not(:empty)) .search-hint { display: none; }
+.search-hint { color: var(--muted); font-size: .85rem; }
+kbd { font: inherit; font-size: .78rem; background: var(--surface);
+  border: 1px solid var(--border-strong); border-bottom-width: 2px;
+  border-radius: 4px; padding: .05rem .3rem; color: var(--ink); }
+
 button { padding: .6rem 1.2rem; font-size: 1rem; border: 0;
-  border-radius: 8px; background: #4f46e5; color: #fff; cursor: pointer; }
-#results { list-style: none; padding: 0; margin: 1rem 0; }
-#results li { display: flex; justify-content: space-between;
-  align-items: center; background: #fff; border: 1px solid #e5e7eb;
-  border-radius: 8px; padding: .7rem .9rem; margin-bottom: .5rem;
-  position: relative; overflow: hidden; isolation: isolate; }
+  border-radius: var(--radius); background: var(--accent); color: var(--on-accent);
+  cursor: pointer; min-height: 40px;
+  transition: background var(--dur) var(--ease-out); }
+button:hover { background: var(--accent-hover); }
+button:active { background: var(--accent-active); }
+button:disabled { background: var(--accent-disabled); cursor: not-allowed; }
+
+#results { list-style: none; padding: 0; margin: var(--sp-4) 0; }
+#results li { display: flex; justify-content: space-between; gap: var(--sp-4);
+  align-items: center; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--sp-3) .9rem; margin-bottom: var(--sp-2);
+  position: relative; overflow: hidden; isolation: isolate;
+  transition: border-color var(--dur) var(--ease-out),
+              box-shadow var(--dur) var(--ease-out); }
 #results .name { font-weight: 600; display: block; }
-#results .cid { color: #6b7280; font-size: .85rem; }
-#results li.selected { border-color: #4f46e5;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, .2); cursor: pointer; }
+#results .cid { color: var(--muted); font-size: .85rem; }
+
+/* Keyboard selection only. Hover never sets this — see search.js render(). */
+#results li.selected { border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-ring); }
+
 #results li::before { content: ""; position: absolute; inset: 0;
   border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0;
-  transition: opacity .2s ease;
+  transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
     rgba(79, 70, 229, .16), transparent 70%); }
 #results li.glow::before { opacity: 1; }
-mark.match { background: #e0e7ff; color: inherit;
+
+mark.match { background: var(--accent-soft); color: inherit;
   font-weight: 700; border-radius: 3px; padding: 0 1px; }
-a.open { background: #0d9488; color: #fff; padding: .4rem .8rem;
-  border-radius: 6px; text-decoration: none; font-size: .9rem;
-  white-space: nowrap; }
-.nolink { color: #b45309; background: #fef3c7; padding: .3rem .6rem;
-  border-radius: 6px; font-size: .85rem; }
+
+a.open { display: inline-flex; align-items: center; min-height: 40px;
+  background: var(--action); color: var(--on-accent); padding: var(--sp-2) .9rem;
+  border-radius: var(--radius-sm); text-decoration: none; font-size: .9rem;
+  white-space: nowrap; transition: background var(--dur) var(--ease-out); }
+a.open:hover { background: var(--action-hover); }
+
+.nolink { color: var(--warn-ink); background: var(--warn-bg);
+  padding: var(--sp-1) .6rem; border-radius: var(--radius-sm);
+  font-size: .85rem; white-space: nowrap; }
+
 #results li.recent { justify-content: flex-start; gap: .6rem; cursor: pointer; }
-.recent-label { color: #6b7280; font-size: .75rem; text-transform: uppercase;
+#results li.recent:hover { border-color: var(--border-strong); }
+.recent-label { color: var(--muted); font-size: .75rem; text-transform: uppercase;
   letter-spacing: .03em; }
-.recent-query { color: #1a1d24; font-size: .95rem; }
-.empty { color: #6b7280; }
-.error { color: #b91c1c; }
-.ok { color: #15803d; }
-.hint { color: #6b7280; font-size: .85rem; }
+.recent-query { color: var(--ink); font-size: .95rem; }
+
+/* States. Each says what happened and what to do next — never a dead end. */
+#results li.state { display: block; background: none; border: 0;
+  padding: var(--sp-2) 0; }
+.state-title { display: block; color: var(--ink); font-weight: 600; }
+.state-body { display: block; color: var(--muted); font-size: .9rem;
+  margin-top: var(--sp-1); }
+.state-body strong { color: var(--ink); font-weight: 600; }
+
+.skeleton { height: 58px; border-radius: var(--radius); margin-bottom: var(--sp-2);
+  background: linear-gradient(90deg, var(--skeleton) 25%,
+    var(--skeleton-sheen) 50%, var(--skeleton) 75%);
+  background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.error { color: var(--danger); }
+.ok { color: var(--ok); }
+.hint { color: var(--muted); font-size: .85rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the shake's border/ring cue; drop the movement. The class is removed
+     on a timer, not on animationend, so nothing depends on the animation firing. */
+  .search-wrap.shake { animation: none; }
+  .skeleton { animation: none; background: var(--skeleton); }
+  *, *::before, *::after { transition-duration: 1ms !important; }
+}
