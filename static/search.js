@@ -297,6 +297,27 @@ function search(rawQuery) {
   render();
 }
 
+// Scans the whole client list, not just the rendered results: a full name that
+// ranked below the MAX_RESULTS cut still opens on Enter.
+function exactMatches(rawQuery) {
+  const t = rawQuery.trim().toLowerCase();
+  if (!t) return [];
+  return clients.filter((c) => c.nameLower === t || c.idLower === t);
+}
+
+let shakeTimer = null;
+
+function shakeSearch() {
+  if (shakeTimer) clearTimeout(shakeTimer);
+  searchWrap.classList.remove("shake");
+  void searchWrap.offsetWidth; // reflow, so a repeated Enter restarts the animation
+  searchWrap.classList.add("shake");
+  shakeTimer = setTimeout(() => {
+    searchWrap.classList.remove("shake");
+    shakeTimer = null;
+  }, 400);
+}
+
 function spanForPlain(fieldLower) {
   if (!queryLower) return null;
   const start = fieldLower.indexOf(queryLower);
@@ -384,7 +405,11 @@ function render() {
     return;
   }
 
-  results.forEach((entry, index) => {
+  // Hover deliberately does NOT set selectedIndex: that's keyboard-navigation
+  // state, and a pointer passing over the list used to leave a row selected
+  // with no way to clear it, so Enter opened a stale row. Hover feedback is the
+  // pure-CSS .glow effect below.
+  results.forEach((entry) => {
     if (entry.kind === "recent") {
       const li = document.createElement("li");
       li.className = "recent";
@@ -396,7 +421,6 @@ function render() {
       q.textContent = entry.query;
       li.append(label, q);
       li.addEventListener("click", () => applyRecent(entry.query));
-      li.addEventListener("mouseenter", () => setSelected(index));
       list.appendChild(li);
       return;
     }
@@ -445,7 +469,6 @@ function render() {
       li.appendChild(badge);
     }
 
-    li.addEventListener("mouseenter", () => setSelected(index));
     list.appendChild(li);
   });
 }
@@ -475,14 +498,9 @@ document.getElementById("search").addEventListener("keydown", (e) => {
     clearResults();
     return;
   }
-  if (!results.length) return;
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    setSelected((selectedIndex + 1) % results.length);
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    setSelected(selectedIndex <= 0 ? results.length - 1 : selectedIndex - 1);
-  } else if (e.key === "Enter") {
+  // Enter is handled before the empty-results guard: a query with no hits must
+  // still shake rather than fall through silently.
+  if (e.key === "Enter") {
     e.preventDefault();
     if (selectedIndex >= 0 && results[selectedIndex]) {
       const entry = results[selectedIndex];
@@ -491,7 +509,25 @@ document.getElementById("search").addEventListener("keydown", (e) => {
       } else {
         openResult(entry.item);
       }
+      return;
     }
+    // Two clients sharing a name is ambiguous — show both, never guess.
+    const exact = exactMatches(e.target.value);
+    if (exact.length === 1 && isValidLink(exact[0].link)) {
+      openResult(exact[0]);
+    } else {
+      shakeSearch();
+    }
+    return;
+  }
+
+  if (!results.length) return;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    setSelected((selectedIndex + 1) % results.length);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    setSelected(selectedIndex <= 0 ? results.length - 1 : selectedIndex - 1);
   }
 });
 

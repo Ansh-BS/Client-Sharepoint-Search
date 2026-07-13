@@ -20,6 +20,18 @@ input[type=search], input[type=password], input[type=file] {
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
     rgba(255, 255, 255, .35), transparent 70%); }
 .search-wrap.glow::after { opacity: 1; }
+.search-wrap.shake { animation: shake .35s ease; }
+.search-wrap.shake input { border-color: #dc2626; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-wrap.shake { animation: none; }
+}
 button { padding: .6rem 1.2rem; font-size: 1rem; border: 0;
   border-radius: 8px; background: #4f46e5; color: #fff; cursor: pointer; }
 #results { list-style: none; padding: 0; margin: 1rem 0; }
