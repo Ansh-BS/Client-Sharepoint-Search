@@ -1,5 +1,11 @@
 # Update the live PythonAnywhere site (manual file edit)
 
+> **Superseded once the server is on git.** See
+> [GIT_SETUP_PYTHONANYWHERE.md](GIT_SETUP_PYTHONANYWHERE.md) — a one-time
+> setup after which every deploy is `git pull` + Reload, with no file list and
+> no chance of a half-pasted file. Keep this document as the fallback for when
+> the token expires or git is otherwise unavailable.
+
 For a site that is **already deployed and running**. This is the manual
 route: you copy each changed file's contents from your PC into
 PythonAnywhere's own file editor, then Reload.
