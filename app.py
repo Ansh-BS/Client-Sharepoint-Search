@@ -37,7 +37,7 @@ limiter = Limiter(get_remote_address, app=app, default_limits=[],
 # a URL they've seen before, so a deploy that changes those files leaves staff
 # staring at the old ones. Bump this on every deploy that touches either file;
 # the changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "2"
+ASSET_VERSION = "4"
 
 
 @app.context_processor
