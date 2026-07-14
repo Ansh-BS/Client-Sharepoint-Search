@@ -7,17 +7,19 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_v) }}">
 </head>
 <body>
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="Benison Solvers">
+  </div>
+  <nav>
+    <a href="{{ url_for('admin') }}">Admin</a>
+    <a href="{{ url_for('logout') }}">Log out</a>
+  </nav>
+</header>
+
 <main>
-  <header>
-    <div class="brand">
-      <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="Benison Solvers">
-      <h1>Client SharePoint Search</h1>
-    </div>
-    <nav>
-      <a href="{{ url_for('admin') }}">Admin</a>
-      <a href="{{ url_for('logout') }}">Log out</a>
-    </nav>
-  </header>
+  <h1 class="ask">Which client's folder?</h1>
+  <p class="ask-sub">Partial names and typos still find the client.</p>
 
   <label class="sr-only" for="search">Search clients by name or Client ID</label>
   <div class="search-wrap">
@@ -26,6 +28,9 @@
            role="combobox" aria-expanded="false" aria-controls="results"
            aria-autocomplete="list" aria-describedby="search-hint">
   </div>
+
+  <ul id="results" role="listbox" aria-label="Matching clients"></ul>
+
   <div class="search-msg">
     <p class="feedback" id="feedback" role="alert"></p>
     <p class="search-hint" id="search-hint">
@@ -35,9 +40,9 @@
     </p>
   </div>
 
-  <ul id="results" role="listbox" aria-label="Matching clients"></ul>
   <p id="status" class="sr-only" role="status" aria-live="polite"></p>
 </main>
+
 <script src="{{ url_for('static', filename='fuse.min.js') }}"></script>
 <script src="{{ url_for('static', filename='search.js', v=asset_v) }}"></script>
 </body>

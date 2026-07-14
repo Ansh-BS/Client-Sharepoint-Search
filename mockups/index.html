@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redesign mockups · Client SharePoint Search</title>
+<style>
+:root {
+  --bg: #eceef0; --paper: #fff; --line: #d9dbdf; --line-strong: #c4c7cd;
+  --ink: #16181d; --muted: #5f6672; --accent: #4f46e5;
+  --dur: 180ms; --ease: cubic-bezier(.22,1,.36,1);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.55; -webkit-font-smoothing: antialiased;
+}
+main { max-width: 60rem; margin: 0 auto; padding: 3.5rem 1.25rem 6rem; }
+h1 { font-size: 1.75rem; letter-spacing: -.02em; margin: 0 0 .4rem; }
+.lede { margin: 0 0 2.5rem; color: var(--muted); max-width: 60ch; }
+.lede strong { color: var(--ink); font-weight: 600; }
+
+.cards { display: grid; gap: 1rem; }
+@media (min-width: 56rem) { .cards { grid-template-columns: repeat(3, 1fr); } }
+
+a.card {
+  display: flex; flex-direction: column;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 10px; padding: 1.25rem; text-decoration: none; color: inherit;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+a.card:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+a.card:active { transform: translateY(0); }
+a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tag {
+  font-size: .6875rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: .4rem;
+}
+.card h2 { margin: 0 0 .5rem; font-size: 1.0625rem; font-weight: 600; }
+.card p { margin: 0 0 1rem; font-size: .875rem; color: var(--muted); }
+.card dl { margin: 0; font-size: .8125rem; border-top: 1px solid var(--line); padding-top: .7rem; }
+.card dt { color: var(--muted); }
+.card dd { margin: 0 0 .5rem; }
+.card dd:last-child { margin-bottom: 0; }
+.card .go { margin-top: auto; padding-top: 1rem; font-size: .8125rem;
+  font-weight: 600; color: var(--accent); }
+
+/* miniature previews, drawn in CSS — a hint of each layout, not a screenshot */
+.mini { height: 84px; border-radius: 6px; margin-bottom: 1rem; padding: 8px;
+  display: flex; flex-direction: column; gap: 4px; }
+.mini-a { background: #f4f5f6; border: 1px solid var(--line); }
+.mini-a .bar { height: 9px; background: #fff; border: 1px solid var(--line); border-radius: 2px; }
+.mini-a .box { height: 16px; background: #fff; border: 1px solid #cfd3da; border-radius: 3px; }
+.mini-a .rows { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 3px;
+  background-image: linear-gradient(#e3e5e9 1px, transparent 1px); background-size: 100% 10px; }
+.mini-b { background: #eef0f2; border: 1px solid var(--line); justify-content: center; align-items: center; }
+.mini-b .box { width: 74%; height: 17px; background: #fff; border: 1px solid #ccd1d8;
+  border-radius: 5px 5px 0 0; }
+.mini-b .panel { width: 74%; height: 34px; background: #fff; border: 1px solid #ccd1d8;
+  border-top: 0; border-radius: 0 0 5px 5px;
+  background-image: linear-gradient(#e2e5e9 1px, transparent 1px); background-size: 100% 11px; }
+.mini-c { background: #f2f1ee; border: 1px solid #c9c6be; }
+.mini-c .bar { height: 8px; background: #fcfcfb; border: 1px solid #c9c6be; }
+.mini-c .box { height: 13px; background: #fcfcfb; border: 1px solid #c9c6be; }
+.mini-c .table { flex: 1; background: #fcfcfb; border: 1px solid #c9c6be;
+  background-image: linear-gradient(#e2e0da 1px, transparent 1px); background-size: 100% 9px; }
+
+.rules { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line-strong);
+  font-size: .875rem; color: var(--muted); max-width: 66ch; }
+.rules h3 { font-size: .875rem; color: var(--ink); margin: 0 0 .5rem; }
+.rules ul { margin: 0; padding-left: 1.1rem; }
+.rules li + li { margin-top: .25rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Redesign mockups</h1>
+  <p class="lede">Three directions for <strong>Client SharePoint Search</strong>. Each is a
+     standalone page showing all eight states: empty, matches, no match, no link on file,
+     duplicate Client ID, loading, login, admin upload. The live Flask app is untouched —
+     nothing here is wired to real data.</p>
+
+  <div class="cards">
+
+    <a class="card" href="a-quiet-utility.html">
+      <div class="mini mini-a">
+        <div class="bar"></div><div class="box"></div><div class="rows"></div>
+      </div>
+      <div class="tag">Direction A</div>
+      <h2>Quiet Utility</h2>
+      <p>What you have now, tightened. Floating cards become ruled rows on one surface.
+         Admin and Log out drop into a thin utility bar.</p>
+      <dl>
+        <dt>Risk</dt><dd>Lowest — nothing unfamiliar to staff</dd>
+        <dt>Best at</dt><dd>Shipping this week</dd>
+      </dl>
+      <span class="go">Open A →</span>
+    </a>
+
+    <a class="card" href="b-command-bar.html">
+      <div class="mini mini-b">
+        <div class="box"></div><div class="panel"></div>
+      </div>
+      <div class="tag">Direction B</div>
+      <h2>Command Bar</h2>
+      <p>Empty page, box at centre. Typing hangs a results panel straight off it, so box and
+         matches read as one keyboard-driven object.</p>
+      <dl>
+        <dt>Risk</dt><dd>Highest — a centred box may read as unfamiliar</dd>
+        <dt>Best at</dt><dd>The stated job: name in, folder out</dd>
+      </dl>
+      <span class="go">Open B →</span>
+    </a>
+
+    <a class="card" href="c-ledger.html">
+      <div class="mini mini-c">
+        <div class="bar"></div><div class="box"></div><div class="table"></div>
+      </div>
+      <div class="tag">Direction C</div>
+      <h2>Ledger</h2>
+      <p>The firm's register, searchable. A ruled table — Client, ID, Added, Folder — with
+         monospaced tabular IDs on warm paper.</p>
+      <dl>
+        <dt>Risk</dt><dd>Low — it looks like the spreadsheet it came from</dd>
+        <dt>Best at</dt><dd>Twenty matches, and spotting duplicate IDs</dd>
+      </dl>
+      <span class="go">Open C →</span>
+    </a>
+
+  </div>
+
+  <section class="rules">
+    <h3>What all three hold to</h3>
+    <ul>
+      <li>PRODUCT.md's anti-references: no gradient text, no hero metrics, no tracked-uppercase eyebrows, no purple-gradient decoration.</li>
+      <li>Every state teaches. No match, no link, and duplicate ID each say what happened and what to do next.</li>
+      <li>Never guess for the user. An ambiguous ID stops the product; it does not open a plausible folder.</li>
+      <li>Indigo means selection and focus. Teal means the one action worth taking. Nothing else carries colour.</li>
+      <li>Hover never changes what Enter opens.</li>
+      <li>Colour is never the only carrier of meaning: selected rows, errors, and “no link on file” each pair colour with text or shape.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

@@ -31,7 +31,8 @@ def test_valid_upload_replaces_data_and_reports(logged_in, data_path,
         ("N2", "Linkless Client", None),
     ])
     resp = upload(logged_in, p)
-    assert b"2 clients imported, 1 missing links." in resp.data
+    assert b"2 clients imported" in resp.data
+    assert b"1 client with no SharePoint link" in resp.data
     assert b"Linkless Client" in resp.data
     assert [c["name"] for c in load_clients(data_path)] == \
         ["New Client", "Linkless Client"]
