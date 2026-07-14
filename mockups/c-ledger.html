@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup C — Ledger · Client SharePoint Search</title>
+<style>
+/* =========================================================================
+   DIRECTION C — LEDGER
+   The firm's own register. Results are a ruled table — Client · ID · Folder —
+   with tabular, monospaced IDs and hairline rules. No cards, no shadows, no
+   radius on the data itself. Twenty matches stay readable; a duplicate ID is
+   obvious because the two rows sit adjacent under one rule.
+   Reads like a spreadsheet, which is exactly what the staff already read.
+   ========================================================================= */
+:root {
+  --paper: #fcfcfb;      /* warm paper, not white */
+  --bg: #f2f1ee;
+  --rule: #e2e0da;
+  --rule-strong: #c9c6be;
+
+  --ink: #191813;
+  --ink-soft: #4a4740;
+  --muted: #6a665c;
+
+  --accent: #4338ca;     /* selection / focus / match */
+  --accent-soft: #eceafd;
+  --accent-ring: rgba(67,56,202,.28);
+  --action: #0f766e;     /* the one action */
+  --action-hover: #115e59;
+
+  --danger: #a4231a;
+  --warn-ink: #854d09;
+  --warn-bg: #fbf1da;
+
+  --dur: 150ms;
+  --ease: cubic-bezier(.22,1,.36,1);
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: #e8e6e1; color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+}
+
+/* ---- mockup scaffolding ---- */
+.sheet { max-width: 1040px; margin: 0 auto; padding: 2rem 1rem 6rem; }
+.sheet-head { padding: 1.5rem 0 2rem; border-bottom: 1px solid var(--rule-strong); margin-bottom: 2rem; }
+.sheet-head h1 { font-size: 1.6rem; margin: 0 0 .35rem; letter-spacing: -.015em; }
+.sheet-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+.sheet-head .back { display: inline-block; margin-bottom: 1rem; font-size: .875rem; color: var(--ink-soft); }
+.frame { margin-bottom: 2rem; }
+.frame > figcaption {
+  font-size: .75rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: .5rem; font-variant-numeric: tabular-nums;
+}
+.frame > figcaption b { color: var(--ink); font-weight: 600; }
+.screen { background: var(--bg); border: 1px solid var(--rule-strong); overflow: hidden; }
+
+/* ---- the design ---- */
+.masthead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem; padding: .6rem 1.25rem;
+  background: var(--paper); border-bottom: 1px solid var(--rule-strong);
+}
+.masthead .title {
+  font-size: .8125rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink);
+}
+.masthead .title span { color: var(--muted); font-weight: 500; letter-spacing: .02em; text-transform: none; }
+.masthead nav { display: flex; gap: 1rem; font-size: .8125rem; }
+.masthead nav a {
+  color: var(--muted); text-decoration: none; padding-bottom: 1px;
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.masthead nav a:hover { color: var(--ink); border-bottom-color: var(--rule-strong); }
+.masthead nav a[aria-current] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+
+.stage { padding: 1.75rem 1.25rem 2rem; }
+.wrap { max-width: 44rem; }
+.wrap.narrow { max-width: 22rem; margin: 2rem auto; }
+
+/* search: a ruled field, not a floating pill */
+.search { position: relative; }
+.search input {
+  width: 100%; padding: .7rem .9rem .7rem 2.4rem;
+  font-size: 1.0625rem; font-family: inherit;
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule-strong); border-radius: 3px;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.search input::placeholder { color: var(--muted); opacity: 1; }
+.search input:focus-visible {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.search .icon {
+  position: absolute; left: .75rem; top: 50%; transform: translateY(-50%);
+  width: 17px; height: 17px; color: var(--muted); pointer-events: none;
+}
+.search.is-error input { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(164,35,26,.13); }
+
+.msg { min-height: 2.4rem; margin: .5rem 0 1.25rem; font-size: .8125rem; }
+.msg p { margin: 0; }
+.msg .hint { color: var(--muted); }
+.msg .refusal { color: var(--danger); font-weight: 500; }
+kbd {
+  font: var(--mono); font-size: .6875rem; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--rule-strong); border-bottom-width: 2px;
+  border-radius: 3px; padding: .05rem .3rem;
+}
+
+/* the register */
+table { width: 100%; border-collapse: collapse; background: var(--paper);
+  border: 1px solid var(--rule-strong); }
+caption {
+  caption-side: top; text-align: left;
+  padding: 0 0 .4rem; font-size: .75rem; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+thead th {
+  text-align: left; padding: .4rem .9rem;
+  font-size: .6875rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted); background: #f7f6f3;
+  border-bottom: 1px solid var(--rule-strong);
+}
+thead th.right { text-align: right; }
+tbody td {
+  padding: .55rem .9rem; border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #f7f6f3; }
+tbody tr[aria-selected="true"] td { background: var(--accent-soft); }
+tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+td.client { font-weight: 600; letter-spacing: -.005em; }
+td.id {
+  font-family: var(--mono); font-size: .8125rem; font-variant-numeric: tabular-nums;
+  color: var(--ink-soft); white-space: nowrap; width: 1%;
+}
+td.folder { text-align: right; width: 1%; white-space: nowrap; }
+td.added { font-size: .8125rem; color: var(--muted); white-space: nowrap; width: 1%;
+  font-variant-numeric: tabular-nums; }
+mark { background: var(--accent-soft); color: var(--accent); font-weight: 700;
+  border-radius: 2px; padding: 0 1px; }
+td.id mark { background: var(--accent-soft); }
+
+a.open {
+  display: inline-flex; align-items: center; min-height: 30px;
+  padding: 0 .7rem; border-radius: 3px;
+  background: var(--action); color: #fff; text-decoration: none;
+  font-size: .75rem; font-weight: 600; letter-spacing: .01em;
+  transition: background var(--dur) var(--ease);
+}
+a.open:hover { background: var(--action-hover); }
+a.open:active { transform: translateY(1px); }
+.nolink {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .2rem .5rem; border-radius: 3px;
+  background: var(--warn-bg); color: var(--warn-ink);
+  font-size: .75rem; font-weight: 600; white-space: nowrap;
+}
+.note {
+  padding: .6rem .9rem; background: var(--warn-bg); color: var(--warn-ink);
+  border: 1px solid #ecdcb4; border-top: 0; font-size: .8125rem;
+}
+.note b { font-weight: 700; }
+
+/* states that teach — set as a ruled note, in keeping with the register */
+.teach {
+  background: var(--paper); border: 1px solid var(--rule-strong);
+  padding: 1.1rem .9rem;
+}
+.teach h3 { margin: 0 0 .3rem; font-size: .9375rem; font-weight: 600; }
+.teach p { margin: 0; font-size: .875rem; color: var(--muted); max-width: 56ch; }
+.teach ul { margin: .55rem 0 0; padding-left: 1.05rem; font-size: .875rem; color: var(--muted); }
+.teach li + li { margin-top: .2rem; }
+.teach strong { color: var(--ink); font-weight: 600; }
+.teach code { font-family: var(--mono); font-size: .8125rem; color: var(--ink); }
+
+/* loading */
+.skel-row { height: 41px; border-bottom: 1px solid var(--rule);
+  background: linear-gradient(90deg,#f0efeb 25%,#f8f7f5 50%,#f0efeb 75%);
+  background-size: 200% 100%; animation: sheen 1.2s linear infinite; }
+.skel-wrap { background: var(--paper); border: 1px solid var(--rule-strong); }
+@keyframes sheen { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+
+/* forms, in the same ruled language */
+.form { background: var(--paper); border: 1px solid var(--rule-strong); padding: 1.25rem; }
+.form h2 { margin: 0 0 .25rem; font-size: 1.0625rem; font-weight: 600; }
+.form .sub { margin: 0 0 1.1rem; font-size: .875rem; color: var(--muted); }
+label { display: block; font-size: .6875rem; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: .3rem; }
+input[type=password], input[type=file] {
+  width: 100%; padding: .55rem .7rem; font-size: .9375rem; font-family: inherit;
+  background: #fff; color: var(--ink);
+  border: 1px solid var(--rule-strong); border-radius: 3px;
+}
+input:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+button {
+  margin-top: 1.1rem; width: 100%; min-height: 38px;
+  padding: .5rem 1rem; font: inherit; font-size: .9375rem; font-weight: 600;
+  border: 0; border-radius: 3px; background: var(--accent); color: #fff; cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+button:hover { background: #3730a3; }
+button:active { background: #312e81; transform: translateY(1px); }
+.field-error { margin: .4rem 0 0; font-size: .8125rem; color: var(--danger); }
+.receipt {
+  margin-top: 1.1rem; border: 1px solid var(--rule-strong); background: #fff;
+}
+.receipt .r-head {
+  padding: .5rem .8rem; background: #f0f7f2; border-bottom: 1px solid #cfe6d8;
+  font-size: .875rem; color: #14532d;
+}
+.receipt dl { display: grid; grid-template-columns: auto 1fr; gap: 0;
+  margin: 0; font-size: .8125rem; }
+.receipt dt { padding: .4rem .8rem; color: var(--muted); border-bottom: 1px solid var(--rule);
+  white-space: nowrap; }
+.receipt dd { margin: 0; padding: .4rem .8rem; border-bottom: 1px solid var(--rule);
+  text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.receipt dl > :nth-last-child(-n+2) { border-bottom: 0; }
+.receipt .r-warn {
+  padding: .6rem .8rem; background: var(--warn-bg); color: var(--warn-ink);
+  border-top: 1px solid #ecdcb4; font-size: .8125rem;
+}
+.receipt .r-warn ul { margin: .35rem 0 0; padding-left: 1.05rem; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .skel-row { animation: none; background: #f0efeb; }
+  *, *::before, *::after { transition-duration: 1ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="sheet-head">
+    <a class="back" href="index.html">← All three directions</a>
+    <h1>C — Ledger</h1>
+    <p>The register the firm already keeps, made searchable. Matches are a ruled table —
+       Client, ID, Folder — with monospaced tabular IDs, hairline rules, warm paper.
+       Twenty matches stay scannable, and a duplicate ID is self-evident because the two
+       rows sit adjacent under one rule. Least decorative of the three, and the closest
+       to what staff read all day in Excel.</p>
+  </header>
+
+  <!-- 1 · EMPTY -->
+  <figure class="frame">
+    <figcaption><b>1</b> — Empty. What staff see on load.</figcaption>
+    <div class="screen">
+      <div class="masthead">
+        <div class="title">Client register <span>· SharePoint folders</span></div>
+        <nav><a href="#" aria-current="page">Search</a><a href="#">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <div class="wrap">
+          <div class="search">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" placeholder="Client name or ID…" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="msg">
+            <p class="hint">Type a name or Client ID and press <kbd>Enter</kbd> to open the folder.
+               Typos and partial names still find matches — move with <kbd>↑</kbd> <kbd>↓</kbd>, or click a row.</p>
+          </div>
+          <div class="teach">
+            <h3>Nothing typed yet</h3>
+            <p>1,482 clients are in the register, last replaced 11 July 2026.
+               Start typing — you don't need the exact spelling, and case doesn't matter.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 2 · MATCHES -->
+  <figure class="frame">
+    <figcaption><b>2</b> — Matches as a register. Row 2 selected by keyboard; hover never moves it.</figcaption>
+    <div class="screen">
+      <div class="masthead">
+        <div class="title">Client register <span>· SharePoint folders</span></div>
+        <nav><a href="#" aria-current="page">Search</a><a href="#">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <div class="wrap">
+          <div class="search">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" value="marlo" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="msg"><p class="hint"><kbd>Enter</kbd> opens the selected row.</p></div>
+
+          <table>
+            <caption>4 of 1,482 clients match “marlo”</caption>
+            <thead>
+              <tr>
+                <th scope="col">Client</th>
+                <th scope="col">Client ID</th>
+                <th scope="col">Added</th>
+                <th scope="col" class="right">Folder</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="client"><mark>Marlo</mark>w Fabrication Ltd</td>
+                <td class="id">C-10428</td>
+                <td class="added">Mar 2019</td>
+                <td class="folder"><a class="open" href="#">Open</a></td>
+              </tr>
+              <tr aria-selected="true">
+                <td class="client"><mark>Marlo</mark>we &amp; Hart Chartered Surveyors</td>
+                <td class="id">C-11902</td>
+                <td class="added">Jan 2022</td>
+                <td class="folder"><a class="open" href="#">Open</a></td>
+              </tr>
+              <tr>
+                <td class="client">Ashcroft <mark>Marlo</mark> Dental Care Ltd</td>
+                <td class="id">C-12237</td>
+                <td class="added">Aug 2023</td>
+                <td class="folder"><a class="open" href="#">Open</a></td>
+              </tr>
+              <tr>
+                <td class="client"><mark>Marl</mark>b<mark>o</mark>rough Kitchens (Wembley) Ltd</td>
+                <td class="id">C-10071</td>
+                <td class="added">Jun 2017</td>
+                <td class="folder"><a class="open" href="#">Open</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 3 · NO MATCH -->
+  <figure class="frame">
+    <figcaption><b>3</b> — No match. The note teaches; it is never a dead end.</figcaption>
+    <div class="screen">
+      <div class="masthead">
+        <div class="title">Client register <span>· SharePoint folders</span></div>
+        <nav><a href="#" aria-current="page">Search</a><a href="#">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <div class="wrap">
+          <div class="search is-error">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" value="wetherbee holdings" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="msg"><p class="refusal">No client matches “wetherbee holdings”, so nothing was opened.</p></div>
+          <div class="teach">
+            <h3>Not in the register</h3>
+            <p>Nothing was opened. The usual explanations:</p>
+            <ul>
+              <li>The client is filed under its registered name — try one distinctive word, like <strong>wetherbee</strong>.</li>
+              <li>The client is new and the spreadsheet hasn't been re-uploaded — ask an admin.</li>
+              <li>You have a Client ID, not a name. IDs are formatted <code>C-10428</code>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 4 · NO LINK -->
+  <figure class="frame">
+    <figcaption><b>4</b> — Client in the register, folder URL missing from the spreadsheet.</figcaption>
+    <div class="screen">
+      <div class="stage">
+        <div class="wrap">
+          <table>
+            <caption>2 clients match “halloran” · 1 has no folder link</caption>
+            <thead>
+              <tr>
+                <th scope="col">Client</th>
+                <th scope="col">Client ID</th>
+                <th scope="col">Added</th>
+                <th scope="col" class="right">Folder</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="client"><mark>Halloran</mark> Groundworks Ltd</td>
+                <td class="id">C-11540</td>
+                <td class="added">Feb 2021</td>
+                <td class="folder"><a class="open" href="#">Open</a></td>
+              </tr>
+              <tr>
+                <td class="client"><mark>Halloran</mark> Property Holdings Ltd</td>
+                <td class="id">C-11541</td>
+                <td class="added">Feb 2021</td>
+                <td class="folder">
+                  <span class="nolink">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                      <path d="M8 2.5v6.5"/><circle cx="8" cy="12.4" r=".9" fill="currentColor" stroke="none"/>
+                    </svg>
+                    No link on file
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="note">
+            <b>C-11541 has no SharePoint URL in the spreadsheet.</b>
+            Ask an admin to add it and re-upload. Don't open the similarly-named folder above —
+            it belongs to a different client.
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 5 · ID COLLISION -->
+  <figure class="frame">
+    <figcaption><b>5</b> — Duplicate ID. Two rows under one rule: the ambiguity is visible, not explained.</figcaption>
+    <div class="screen">
+      <div class="stage">
+        <div class="wrap">
+          <div class="search is-error">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" value="C-10428" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="msg"><p class="refusal">Two clients share C-10428. Enter won't choose — pick a row.</p></div>
+          <table>
+            <caption>2 clients share Client ID C-10428</caption>
+            <thead>
+              <tr>
+                <th scope="col">Client</th>
+                <th scope="col">Client ID</th>
+                <th scope="col">Added</th>
+                <th scope="col" class="right">Folder</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="client">Marlow Fabrication Ltd</td>
+                <td class="id"><mark>C-10428</mark></td>
+                <td class="added">Mar 2019</td>
+                <td class="folder"><a class="open" href="#">Open</a></td>
+              </tr>
+              <tr>
+                <td class="client">Marlow Fabrication (Trading) Ltd</td>
+                <td class="id"><mark>C-10428</mark></td>
+                <td class="added">Nov 2024</td>
+                <td class="folder"><a class="open" href="#">Open</a></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="note">
+            <b>Duplicate ID in the spreadsheet.</b>
+            Opening the wrong client's folder is the expensive mistake, so nothing opens
+            automatically. Open the row you meant, then tell an admin so the duplicate is corrected.
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 6 · LOADING -->
+  <figure class="frame">
+    <figcaption><b>6</b> — Loading the register.</figcaption>
+    <div class="screen">
+      <div class="stage">
+        <div class="wrap">
+          <div class="search">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" placeholder="Loading the register…" disabled aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="msg"><p class="hint">Loading 1,482 clients. The box unlocks in a moment.</p></div>
+          <div class="skel-wrap" aria-hidden="true">
+            <div class="skel-row"></div><div class="skel-row"></div>
+            <div class="skel-row"></div><div class="skel-row" style="border-bottom:0"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 7 · LOGIN -->
+  <figure class="frame">
+    <figcaption><b>7</b> — Login, with a wrong password.</figcaption>
+    <div class="screen">
+      <div class="masthead">
+        <div class="title">Client register <span>· SharePoint folders</span></div>
+      </div>
+      <div class="stage">
+        <div class="wrap narrow">
+          <div class="form">
+            <h2>Sign in</h2>
+            <p class="sub">Staff password. Ask the office manager if you don't have it.</p>
+            <label for="pw-c">Password</label>
+            <input id="pw-c" type="password" value="············" aria-invalid="true" aria-describedby="pw-c-err">
+            <p class="field-error" id="pw-c-err">Wrong password. Check caps lock and try again.</p>
+            <button type="button">Sign in</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 8 · ADMIN -->
+  <figure class="frame">
+    <figcaption><b>8</b> — Admin upload. The result reads as a receipt, in the register's own language.</figcaption>
+    <div class="screen">
+      <div class="masthead">
+        <div class="title">Client register <span>· SharePoint folders</span></div>
+        <nav><a href="#">Search</a><a href="#" aria-current="page">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <div class="wrap" style="max-width:32rem">
+          <div class="form">
+            <h2>Replace the register</h2>
+            <p class="sub">Upload the SharePoint links spreadsheet. It replaces the current register
+               outright — any client missing from the new file stops being findable.</p>
+
+            <label for="f-c">Spreadsheet (.xlsx)</label>
+            <input id="f-c" type="file">
+
+            <label for="ap-c" style="margin-top:1rem">Admin password</label>
+            <input id="ap-c" type="password" placeholder="Required to replace the register">
+
+            <button type="button">Upload and replace</button>
+
+            <div class="receipt">
+              <div class="r-head">Imported from <strong>SharePoint Links for Clients S.A.xlsx</strong> · 11 Jul 2026, 14:38</div>
+              <dl>
+                <dt>Clients in the new register</dt><dd>1,482</dd>
+                <dt>Clients in the previous register</dt><dd>1,455</dd>
+                <dt>With a SharePoint link</dt><dd>1,479</dd>
+                <dt>Without a link</dt><dd>3</dd>
+              </dl>
+              <div class="r-warn">
+                <strong>3 clients have no SharePoint link.</strong> They stay searchable but
+                show “No link on file” until a URL is added:
+                <ul>
+                  <li>Halloran Property Holdings Ltd — C-11541</li>
+                  <li>Redcliffe Joinery Ltd — C-12904</li>
+                  <li>Stanmore Physio Group Ltd — C-13011</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+</div>
+</body>
+</html>

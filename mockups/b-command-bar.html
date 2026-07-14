@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup B — Command Bar · Client SharePoint Search</title>
+<style>
+/* =========================================================================
+   DIRECTION B — COMMAND BAR
+   The typed name IS the interface. Empty state: box sits at optical centre,
+   nothing else on the page. Typing lifts the box and hangs one results panel
+   directly beneath it — a single object, not a page of scattered cards.
+   Chrome is near-zero: Admin / Log out live in the corner, small.
+   ========================================================================= */
+:root {
+  --bg: #eef0f2;
+  --surface: #fff;
+  --line: #e2e5e9;
+  --line-strong: #ccd1d8;
+
+  --ink: #14171c;
+  --ink-soft: #444b55;
+  --muted: #5d646f;
+
+  --accent: #4f46e5;
+  --accent-soft: #e0e7ff;
+  --accent-ring: rgba(79,70,229,.30);
+  --action: #0f766e;
+  --action-hover: #115e59;
+
+  --danger: #b42318;
+  --warn-ink: #92400e;
+  --warn-bg: #fef3c7;
+
+  --radius: 12px;
+  --radius-sm: 7px;
+  --dur: 180ms;
+  --ease: cubic-bezier(.22,1,.36,1);
+  /* one tinted elevation, matched to the page hue — not black at low opacity */
+  --lift: 0 1px 2px rgba(23,28,38,.05), 0 12px 28px -12px rgba(23,28,38,.16);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: #e6e8ec; color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+}
+
+/* ---- mockup scaffolding ---- */
+.sheet { max-width: 980px; margin: 0 auto; padding: 2rem 1rem 6rem; }
+.sheet-head { padding: 1.5rem 0 2rem; border-bottom: 1px solid #d5d8dd; margin-bottom: 2rem; }
+.sheet-head h1 { font-size: 1.6rem; margin: 0 0 .35rem; letter-spacing: -.015em; }
+.sheet-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+.sheet-head .back { display: inline-block; margin-bottom: 1rem; font-size: .875rem; color: var(--ink-soft); }
+.frame { margin-bottom: 2rem; }
+.frame > figcaption {
+  font-size: .75rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: .5rem; font-variant-numeric: tabular-nums;
+}
+.frame > figcaption b { color: var(--ink); font-weight: 600; }
+.screen {
+  background: var(--bg); border: 1px solid #d5d8dd; border-radius: 10px;
+  overflow: hidden; position: relative;
+}
+
+/* ---- the design ---- */
+.corner {
+  position: absolute; top: .75rem; right: 1rem; z-index: 2;
+  display: flex; gap: .15rem;
+}
+.corner a {
+  font-size: .75rem; color: var(--muted); text-decoration: none;
+  padding: .25rem .5rem; border-radius: 6px;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.corner a:hover { background: rgba(20,23,28,.05); color: var(--ink); }
+.corner-mark {
+  position: absolute; top: .75rem; left: 1rem; z-index: 2;
+  display: flex; align-items: center; gap: .45rem;
+  font-size: .75rem; color: var(--muted);
+}
+.corner-mark .mark {
+  width: 20px; height: 20px; border-radius: 5px; flex: none;
+  background: var(--accent); color: #fff; display: grid; place-items: center;
+  font-size: .5625rem; font-weight: 700;
+}
+
+/* the stage. Empty state centres the box optically (bottom padding > top). */
+.stage { padding: 4.5rem 1.5rem 3rem; }
+.stage.centred { padding: 7rem 1.5rem 8rem; }
+.bar { max-width: 34rem; margin: 0 auto; }
+
+.ask {
+  text-align: center; margin: 0 0 1.25rem;
+  font-size: 1.5rem; font-weight: 600; letter-spacing: -.02em;
+  text-wrap: balance;
+}
+.ask + .ask-sub {
+  text-align: center; margin: -.9rem 0 1.5rem;
+  font-size: .875rem; color: var(--muted);
+}
+
+/* box + attached panel form one object */
+.combo { position: relative; }
+.combo input {
+  width: 100%; padding: 1rem 1.1rem 1rem 3rem;
+  font-size: 1.1875rem; font-family: inherit; letter-spacing: -.01em;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  box-shadow: var(--lift);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              border-radius var(--dur) var(--ease);
+}
+.combo input::placeholder { color: var(--muted); opacity: 1; }
+.combo input:focus-visible {
+  outline: none; border-color: var(--accent);
+  box-shadow: var(--lift), 0 0 0 3px var(--accent-ring);
+}
+.combo .icon {
+  position: absolute; left: 1.05rem; top: 1.15rem;
+  width: 20px; height: 20px; color: var(--muted); pointer-events: none;
+}
+.combo.open input { border-radius: var(--radius) var(--radius) 0 0; border-bottom-color: var(--line); }
+.combo.is-error input { border-color: var(--danger); box-shadow: var(--lift), 0 0 0 3px rgba(180,35,24,.13); }
+
+/* panel hangs off the box */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line-strong); border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--lift); overflow: hidden;
+}
+.panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .45rem 1.1rem; font-size: .75rem; color: var(--muted);
+  background: #fafbfc; border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.panel ul { list-style: none; margin: 0; padding: .3rem; }
+.panel li {
+  display: flex; align-items: center; gap: 1rem;
+  padding: .6rem .8rem; border-radius: var(--radius-sm);
+}
+.panel li + li { margin-top: 1px; }
+.panel .who { flex: 1; min-width: 0; }
+.panel .n {
+  display: block; font-weight: 600; letter-spacing: -.005em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.panel .id {
+  display: block; font-size: .75rem; color: var(--muted);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.panel li[aria-selected="true"] { background: var(--accent-soft); }
+.panel li[aria-selected="true"] .id { color: #4338ca; }
+.panel li[aria-selected="true"] .enter {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .75rem; font-weight: 600; color: #3730a3;
+}
+.enter { display: none; }
+mark { background: transparent; color: inherit; font-weight: 800; border-bottom: 2px solid var(--accent); }
+a.open {
+  flex: none; display: inline-flex; align-items: center; min-height: 32px;
+  padding: 0 .7rem; border-radius: var(--radius-sm);
+  background: var(--action); color: #fff; text-decoration: none;
+  font-size: .75rem; font-weight: 600; white-space: nowrap;
+  transition: background var(--dur) var(--ease);
+}
+a.open:hover { background: var(--action-hover); }
+a.open:active { transform: translateY(1px); }
+.nolink {
+  flex: none; display: inline-flex; align-items: center; gap: .3rem;
+  padding: .25rem .55rem; border-radius: var(--radius-sm);
+  background: var(--warn-bg); color: var(--warn-ink);
+  font-size: .75rem; font-weight: 600; white-space: nowrap;
+}
+.panel-foot {
+  padding: .55rem 1.1rem; font-size: .75rem; color: var(--muted);
+  border-top: 1px solid var(--line); background: #fafbfc;
+  display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;
+}
+.panel-foot.warn {
+  background: var(--warn-bg); color: var(--warn-ink);
+  border-top-color: #f2dfa8; display: block;
+}
+.panel-foot.warn b { font-weight: 700; }
+kbd {
+  font: inherit; font-size: .6875rem; background: #fff; color: var(--ink);
+  border: 1px solid var(--line-strong); border-bottom-width: 2px;
+  border-radius: 4px; padding: .05rem .3rem;
+}
+
+/* the single reserved message slot under the object */
+.msg { min-height: 2.4rem; margin: .6rem 0 0; font-size: .8125rem; text-align: center; }
+.msg .hint { margin: 0; color: var(--muted); }
+.msg .refusal { margin: 0; color: var(--danger); font-weight: 500; }
+
+/* states that teach — rendered inside the panel, never as a dead end */
+.teach { padding: 1.25rem 1.1rem; }
+.teach h3 { margin: 0 0 .3rem; font-size: .9375rem; font-weight: 600; }
+.teach p { margin: 0; font-size: .8125rem; color: var(--muted); max-width: 52ch; }
+.teach ul { margin: .55rem 0 0; padding-left: 1.05rem; font-size: .8125rem; color: var(--muted); }
+.teach li + li { margin-top: .2rem; }
+.teach strong { color: var(--ink); font-weight: 600; }
+
+/* loading */
+.skel { height: 46px; margin: .3rem; border-radius: var(--radius-sm);
+  background: linear-gradient(90deg,#eceef2 25%,#f6f7f9 50%,#eceef2 75%);
+  background-size: 200% 100%; animation: sheen 1.2s linear infinite; }
+@keyframes sheen { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+
+/* login + admin reuse the same object language: one floating card */
+.card {
+  max-width: 24rem; margin: 0 auto; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  box-shadow: var(--lift); padding: 1.5rem;
+}
+.card.wide { max-width: 32rem; }
+.card h2 { margin: 0 0 .25rem; font-size: 1.125rem; font-weight: 600; letter-spacing: -.01em; }
+.card .sub { margin: 0 0 1.25rem; font-size: .875rem; color: var(--muted); }
+label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .3rem; }
+input[type=password], input[type=file] {
+  width: 100%; padding: .6rem .75rem; font-size: .9375rem; font-family: inherit;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+}
+input:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+button {
+  margin-top: 1.25rem; width: 100%; min-height: 40px;
+  padding: .55rem 1rem; font: inherit; font-size: .9375rem; font-weight: 600;
+  border: 0; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff; cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+button:hover { background: #4338ca; }
+button:active { background: #3730a3; transform: translateY(1px); }
+.field-error { margin: .4rem 0 0; font-size: .8125rem; color: var(--danger); }
+.upload-ok {
+  margin-top: 1.25rem; padding: .7rem .9rem; border-radius: var(--radius-sm);
+  background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: .875rem;
+}
+.upload-warn {
+  margin-top: .5rem; padding: .7rem .9rem; border-radius: var(--radius-sm);
+  background: var(--warn-bg); border: 1px solid #f2dfa8; color: var(--warn-ink); font-size: .875rem;
+}
+.upload-warn ul { margin: .35rem 0 0; padding-left: 1.05rem; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; background: #eceef2; }
+  *, *::before, *::after { transition-duration: 1ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="sheet-head">
+    <a class="back" href="index.html">← All three directions</a>
+    <h1>B — Command Bar</h1>
+    <p>Nothing on the page but the box. Typing hangs one results panel directly off it,
+       so the box and its matches read as a single object you are steering with the keyboard.
+       Admin and Log out shrink into the corner. This is the most faithful reading of
+       “the typed name is the interface” — and the biggest departure from what staff
+       see today, which is the risk worth weighing.</p>
+  </header>
+
+  <!-- 1 · EMPTY -->
+  <figure class="frame">
+    <figcaption><b>1</b> — Empty. The box sits at optical centre; nothing competes with it.</figcaption>
+    <div class="screen">
+      <div class="corner-mark"><span class="mark">BS</span> Benison Solvers</div>
+      <div class="corner"><a href="#">Admin</a><a href="#">Log out</a></div>
+      <div class="stage centred">
+        <div class="bar">
+          <h2 class="ask">Which client's folder?</h2>
+          <p class="ask-sub">1,482 clients loaded. Partial names and typos are fine.</p>
+          <div class="combo">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" placeholder="Type a client name or ID…" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="msg">
+            <p class="hint">Press <kbd>Enter</kbd> to open an exact match, or pick one with <kbd>↑</kbd> <kbd>↓</kbd>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 2 · MATCHES -->
+  <figure class="frame">
+    <figcaption><b>2</b> — Typing lifts the box; the panel hangs off it. Row 2 selected by keyboard.</figcaption>
+    <div class="screen">
+      <div class="corner-mark"><span class="mark">BS</span> Benison Solvers</div>
+      <div class="corner"><a href="#">Admin</a><a href="#">Log out</a></div>
+      <div class="stage">
+        <div class="bar">
+          <div class="combo open">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" value="marlo" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span>4 matches</span><span>sorted by closeness</span></div>
+            <ul role="listbox" aria-label="Matching clients">
+              <li role="option">
+                <span class="who">
+                  <span class="n"><mark>Marlo</mark>w Fabrication Ltd</span>
+                  <span class="id">C-10428</span>
+                </span>
+                <a class="open" href="#">Open folder</a>
+              </li>
+              <li role="option" aria-selected="true">
+                <span class="who">
+                  <span class="n"><mark>Marlo</mark>we &amp; Hart Chartered Surveyors</span>
+                  <span class="id">C-11902</span>
+                </span>
+                <span class="enter"><kbd>Enter</kbd> opens</span>
+                <a class="open" href="#">Open folder</a>
+              </li>
+              <li role="option">
+                <span class="who">
+                  <span class="n">Ashcroft <mark>Marlo</mark> Dental Care Ltd</span>
+                  <span class="id">C-12237</span>
+                </span>
+                <a class="open" href="#">Open folder</a>
+              </li>
+              <li role="option">
+                <span class="who">
+                  <span class="n"><mark>Marl</mark>b<mark>o</mark>rough Kitchens (Wembley) Ltd</span>
+                  <span class="id">C-10071</span>
+                </span>
+                <a class="open" href="#">Open folder</a>
+              </li>
+            </ul>
+            <div class="panel-foot">
+              <span><kbd>↑</kbd> <kbd>↓</kbd> move</span>
+              <span><kbd>Enter</kbd> open</span>
+              <span><kbd>Esc</kbd> clear</span>
+            </div>
+          </div>
+          <div class="msg"><p class="hint">Hovering a row never changes what Enter opens.</p></div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 3 · NO MATCH -->
+  <figure class="frame">
+    <figcaption><b>3</b> — No match. The panel stays and teaches; it never shows an empty void.</figcaption>
+    <div class="screen">
+      <div class="corner-mark"><span class="mark">BS</span> Benison Solvers</div>
+      <div class="corner"><a href="#">Admin</a><a href="#">Log out</a></div>
+      <div class="stage">
+        <div class="bar">
+          <div class="combo open is-error">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" value="wetherbee holdings" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="panel">
+            <div class="teach">
+              <h3>No client matches that</h3>
+              <p>Nothing was opened. Three things usually explain it:</p>
+              <ul>
+                <li>The client is filed under its registered name — try one distinctive word, like <strong>wetherbee</strong> alone.</li>
+                <li>The client is new and the spreadsheet hasn't been re-uploaded — ask an admin.</li>
+                <li>You're holding a Client ID, not a name. IDs look like <strong>C-10428</strong>.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="msg"><p class="refusal">No match for “wetherbee holdings”, so nothing was opened.</p></div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 4 · NO LINK -->
+  <figure class="frame">
+    <figcaption><b>4</b> — Client found, folder link missing from the spreadsheet.</figcaption>
+    <div class="screen">
+      <div class="stage" style="padding-top:2.5rem">
+        <div class="bar">
+          <div class="combo open">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" value="halloran" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span>2 matches</span><span>1 without a folder link</span></div>
+            <ul role="listbox" aria-label="Matching clients">
+              <li role="option">
+                <span class="who">
+                  <span class="n"><mark>Halloran</mark> Groundworks Ltd</span>
+                  <span class="id">C-11540</span>
+                </span>
+                <a class="open" href="#">Open folder</a>
+              </li>
+              <li role="option" aria-selected="true">
+                <span class="who">
+                  <span class="n"><mark>Halloran</mark> Property Holdings Ltd</span>
+                  <span class="id">C-11541</span>
+                </span>
+                <span class="nolink">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M8 2.5v6.5"/><circle cx="8" cy="12.4" r=".9" fill="currentColor" stroke="none"/>
+                  </svg>
+                  No link on file
+                </span>
+              </li>
+            </ul>
+            <div class="panel-foot warn">
+              <b>C-11541 has no SharePoint link in the spreadsheet.</b>
+              Ask an admin to add the URL and re-upload. Don't open a similarly-named folder —
+              it may belong to a different client.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 5 · ID COLLISION -->
+  <figure class="frame">
+    <figcaption><b>5</b> — Duplicate Client ID. Enter refuses; the user chooses.</figcaption>
+    <div class="screen">
+      <div class="stage" style="padding-top:2.5rem">
+        <div class="bar">
+          <div class="combo open is-error">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" value="C-10428" aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span>2 clients share this ID</span><span>Enter is disabled</span></div>
+            <ul role="listbox" aria-label="Matching clients">
+              <li role="option">
+                <span class="who">
+                  <span class="n">Marlow Fabrication Ltd</span>
+                  <span class="id"><mark>C-10428</mark> · added Mar 2019</span>
+                </span>
+                <a class="open" href="#">Open folder</a>
+              </li>
+              <li role="option">
+                <span class="who">
+                  <span class="n">Marlow Fabrication (Trading) Ltd</span>
+                  <span class="id"><mark>C-10428</mark> · added Nov 2024</span>
+                </span>
+                <a class="open" href="#">Open folder</a>
+              </li>
+            </ul>
+            <div class="panel-foot warn">
+              <b>Duplicate ID in the spreadsheet.</b>
+              Opening the wrong client's folder is the expensive mistake, so the product
+              won't choose for you. Open the one you meant, then tell an admin.
+            </div>
+          </div>
+          <div class="msg"><p class="refusal">Two clients share C-10428 — pick one.</p></div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 6 · LOADING -->
+  <figure class="frame">
+    <figcaption><b>6</b> — Loading the client list.</figcaption>
+    <div class="screen">
+      <div class="stage" style="padding-top:2.5rem">
+        <div class="bar">
+          <div class="combo open">
+            <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+            </svg>
+            <input type="search" placeholder="Loading clients…" disabled aria-label="Search clients by name or Client ID">
+          </div>
+          <div class="panel" aria-hidden="true">
+            <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+          </div>
+          <div class="msg"><p class="hint">Loading the client list. The box unlocks in a moment.</p></div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 7 · LOGIN -->
+  <figure class="frame">
+    <figcaption><b>7</b> — Login, with a wrong password.</figcaption>
+    <div class="screen">
+      <div class="stage centred" style="padding-top:4rem;padding-bottom:4rem">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.25rem">
+            <span class="mark" style="width:26px;height:26px;border-radius:6px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:.625rem;font-weight:700">BS</span>
+            <span style="font-size:.875rem;font-weight:600">Benison Solvers</span>
+          </div>
+          <h2>Sign in</h2>
+          <p class="sub">Staff password. Ask the office manager if you don't have it.</p>
+          <label for="pw-b">Password</label>
+          <input id="pw-b" type="password" value="············" aria-invalid="true" aria-describedby="pw-b-err">
+          <p class="field-error" id="pw-b-err">Wrong password. Check caps lock and try again.</p>
+          <button type="button">Sign in</button>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 8 · ADMIN -->
+  <figure class="frame">
+    <figcaption><b>8</b> — Admin upload, after a successful import with warnings.</figcaption>
+    <div class="screen">
+      <div class="corner-mark"><span class="mark">BS</span> Benison Solvers</div>
+      <div class="corner"><a href="#">Search</a><a href="#">Log out</a></div>
+      <div class="stage" style="padding-top:3.5rem">
+        <div class="card wide">
+          <h2>Replace the client list</h2>
+          <p class="sub">Upload the SharePoint links spreadsheet. It replaces the current list
+             outright — any client missing from the new file stops being findable.</p>
+
+          <label for="f-b">Spreadsheet (.xlsx)</label>
+          <input id="f-b" type="file">
+
+          <label for="ap-b" style="margin-top:1rem">Admin password</label>
+          <input id="ap-b" type="password" placeholder="Required to replace the list">
+
+          <button type="button">Upload and replace</button>
+
+          <div class="upload-ok">
+            1,482 clients imported from <strong>SharePoint Links for Clients S.A.xlsx</strong>.
+            The search box is live with the new list.
+          </div>
+          <div class="upload-warn">
+            <strong>3 clients have no SharePoint link.</strong> They'll show in search
+            marked “No link on file” until a URL is added:
+            <ul>
+              <li>Halloran Property Holdings Ltd</li>
+              <li>Redcliffe Joinery Ltd</li>
+              <li>Stanmore Physio Group Ltd</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+</div>
+</body>
+</html>

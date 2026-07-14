@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup A — Quiet Utility · Client SharePoint Search</title>
+<style>
+/* =========================================================================
+   DIRECTION A — QUIET UTILITY
+   The current design, tightened. Cards become ruled rows. Admin/Log out
+   demoted to a thin utility bar. The search box is the page's centre of
+   gravity. Indigo = selection. Teal = the one primary action.
+   Lowest-risk direction: same shapes staff already see today.
+   ========================================================================= */
+:root {
+  --bg: #f4f5f6;
+  --surface: #fff;
+  --line: #e3e5e9;
+  --line-strong: #cfd3da;
+
+  --ink: #16181d;
+  --ink-soft: #464c57;
+  --muted: #5f6672;
+
+  --accent: #4f46e5;         /* selection / focus / match */
+  --accent-soft: #e0e7ff;
+  --accent-ring: rgba(79,70,229,.32);
+  --action: #0f766e;         /* the one primary action: open folder */
+  --action-hover: #115e59;
+
+  --danger: #b42318;
+  --warn-ink: #92400e;
+  --warn-bg: #fef3c7;
+
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem;
+  --sp-4: 1rem; --sp-6: 1.5rem; --sp-8: 2rem;
+  --radius: 8px;
+  --dur: 180ms;
+  --ease: cubic-bezier(.22,1,.36,1);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #eceef0;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- mockup scaffolding (not part of the design) ---- */
+.sheet { max-width: 980px; margin: 0 auto; padding: var(--sp-8) var(--sp-4) 6rem; }
+.sheet-head { padding: var(--sp-6) 0 var(--sp-8); border-bottom: 1px solid #d8dade; margin-bottom: var(--sp-8); }
+.sheet-head h1 { font-size: 1.6rem; margin: 0 0 .35rem; letter-spacing: -.015em; }
+.sheet-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+.sheet-head .back { display: inline-block; margin-bottom: var(--sp-4); font-size: .875rem; color: var(--ink-soft); }
+.frame { margin-bottom: var(--sp-8); }
+.frame > figcaption {
+  font-size: .75rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: var(--sp-2);
+  font-variant-numeric: tabular-nums;
+}
+.frame > figcaption b { color: var(--ink); font-weight: 600; }
+.screen {
+  background: var(--bg); border: 1px solid #d8dade; border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ---- the actual design ---- */
+.util {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.util .brand { display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.util .mark {
+  width: 24px; height: 24px; border-radius: 5px; flex: none;
+  background: var(--accent); color: #fff;
+  display: grid; place-items: center;
+  font-size: .7rem; font-weight: 700; letter-spacing: .02em;
+}
+.util .name { font-size: .875rem; font-weight: 600; color: var(--ink); }
+.util nav { display: flex; gap: var(--sp-1); }
+.util nav a {
+  font-size: .8125rem; color: var(--ink-soft); text-decoration: none;
+  padding: .3rem .55rem; border-radius: 6px;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.util nav a:hover { background: #f0f1f4; color: var(--ink); }
+.util nav a[aria-current] { color: var(--ink); font-weight: 600; background: #eef0f4; }
+
+.stage { padding: var(--sp-8) var(--sp-6) var(--sp-6); }
+.stage-narrow { max-width: 26rem; margin: 0 auto; }
+
+h2.title {
+  font-size: 1.375rem; letter-spacing: -.015em; margin: 0 0 var(--sp-4);
+  font-weight: 600;
+}
+
+/* search */
+.search-wrap { position: relative; }
+.search-wrap input {
+  width: 100%; padding: .8rem 1rem .8rem 2.6rem;
+  font-size: 1.0625rem; font-family: inherit;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.search-wrap input::placeholder { color: var(--muted); opacity: 1; }
+.search-wrap input:focus-visible {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.search-wrap .icon {
+  position: absolute; left: .85rem; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; color: var(--muted); pointer-events: none;
+}
+.search-wrap.is-error input { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(180,35,24,.14); }
+
+/* one reserved slot: hint, replaced in place by a refusal. Nothing moves. */
+.msg { min-height: 2.6rem; margin: var(--sp-2) 0 var(--sp-6); font-size: .8125rem; }
+.msg .hint { margin: 0; color: var(--muted); }
+.msg .refusal { margin: 0; color: var(--danger); font-weight: 500; }
+kbd {
+  font: inherit; font-size: .75rem; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line-strong); border-bottom-width: 2px;
+  border-radius: 4px; padding: .05rem .3rem;
+}
+
+/* results — ruled rows on one card, not floating cards */
+.results { list-style: none; margin: 0; padding: 0;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden; }
+.results li { display: flex; align-items: center; gap: var(--sp-4);
+  padding: .7rem var(--sp-4); border-top: 1px solid var(--line); }
+.results li:first-child { border-top: 0; }
+.results .who { min-width: 0; flex: 1; }
+.results .who .n { display: block; font-weight: 600; letter-spacing: -.005em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.results .who .id { display: block; font-size: .8125rem; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; }
+.results li[aria-selected="true"] {
+  background: #f5f5ff;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+mark {
+  background: var(--accent-soft); color: inherit; font-weight: 700;
+  border-radius: 3px; padding: 0 1px;
+}
+a.open {
+  flex: none; display: inline-flex; align-items: center; min-height: 36px;
+  padding: 0 .85rem; border-radius: 6px;
+  background: var(--action); color: #fff; text-decoration: none;
+  font-size: .8125rem; font-weight: 600; white-space: nowrap;
+  transition: background var(--dur) var(--ease);
+}
+a.open:hover { background: var(--action-hover); }
+a.open:active { transform: translateY(1px); }
+.nolink {
+  flex: none; display: inline-flex; align-items: center; gap: .35rem;
+  padding: .3rem .6rem; border-radius: 6px;
+  background: var(--warn-bg); color: var(--warn-ink);
+  font-size: .8125rem; font-weight: 500; white-space: nowrap;
+}
+.count { font-size: .8125rem; color: var(--muted); margin: 0 0 var(--sp-2);
+  font-variant-numeric: tabular-nums; }
+
+/* collision warning: colour is never the only carrier */
+.collide {
+  display: flex; gap: .6rem; align-items: flex-start;
+  padding: .7rem var(--sp-4); background: var(--warn-bg);
+  border-top: 1px solid #f2dfa8;
+  font-size: .8125rem; color: var(--warn-ink);
+}
+.collide b { font-weight: 600; }
+
+/* states that teach */
+.state { padding: var(--sp-6) var(--sp-4); text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.state h3 { margin: 0 0 .3rem; font-size: 1rem; font-weight: 600; }
+.state p { margin: 0; color: var(--muted); font-size: .875rem; max-width: 55ch; }
+.state ul { margin: .6rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: .875rem; }
+.state li + li { margin-top: .2rem; }
+
+/* loading */
+.skel { height: 56px; border-radius: 0; border-top: 1px solid var(--line);
+  background: linear-gradient(90deg,#eceef2 25%,#f5f6f8 50%,#eceef2 75%);
+  background-size: 200% 100%; animation: sheen 1.2s linear infinite; }
+.skel:first-child { border-top: 0; }
+@keyframes sheen { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+
+/* forms: login + admin */
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: var(--sp-6);
+}
+.card h2 { margin: 0 0 .25rem; font-size: 1.125rem; font-weight: 600; }
+.card .sub { margin: 0 0 var(--sp-4); font-size: .875rem; color: var(--muted); }
+label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .3rem; }
+input[type=password], input[type=file] {
+  width: 100%; padding: .6rem .75rem; font-size: .9375rem; font-family: inherit;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+input:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+button {
+  margin-top: var(--sp-4); width: 100%; min-height: 40px;
+  padding: .55rem 1rem; font: inherit; font-size: .9375rem; font-weight: 600;
+  border: 0; border-radius: var(--radius);
+  background: var(--accent); color: #fff; cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+button:hover { background: #4338ca; }
+button:active { background: #3730a3; transform: translateY(1px); }
+.field-error { margin: .4rem 0 0; font-size: .8125rem; color: var(--danger); }
+.upload-ok {
+  margin-top: var(--sp-4); padding: .7rem .9rem; border-radius: var(--radius);
+  background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: .875rem;
+}
+.upload-warn {
+  margin-top: var(--sp-2); padding: .7rem .9rem; border-radius: var(--radius);
+  background: var(--warn-bg); border: 1px solid #f2dfa8; color: var(--warn-ink); font-size: .875rem;
+}
+.upload-warn ul { margin: .35rem 0 0; padding-left: 1.1rem; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; background: #eceef2; }
+  *, *::before, *::after { transition-duration: 1ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="sheet-head">
+    <a class="back" href="index.html">← All three directions</a>
+    <h1>A — Quiet Utility</h1>
+    <p>The design you have now, tightened. Result cards become ruled rows on a single
+       surface, so ten matches read as one list instead of ten objects. Admin and
+       Log out drop into a thin utility bar and stop competing with the search box.
+       Indigo still means selection, teal still means the one action worth taking.
+       Lowest-risk of the three: nothing here is unfamiliar to staff who use it today.</p>
+  </header>
+
+  <!-- 1 · EMPTY -->
+  <figure class="frame">
+    <figcaption><b>1</b> — Empty. What staff see on load.</figcaption>
+    <div class="screen">
+      <div class="util">
+        <div class="brand"><span class="mark">BS</span><span class="name">Client SharePoint Search</span></div>
+        <nav><a href="#" aria-current="page">Search</a><a href="#">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <h2 class="title">Find a client folder</h2>
+        <div class="search-wrap">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+          </svg>
+          <input type="search" placeholder="Type a client name or ID…" aria-label="Search clients by name or Client ID">
+        </div>
+        <div class="msg">
+          <p class="hint">Type a full name or Client ID and press <kbd>Enter</kbd> to open the folder.
+             Partial names and typos still find matches — pick one with <kbd>↑</kbd> <kbd>↓</kbd> then <kbd>Enter</kbd>, or click it.</p>
+        </div>
+        <div class="state">
+          <h3>Nothing typed yet</h3>
+          <p>1,482 client folders are loaded. Start typing and matches appear as you go —
+             you don't need the exact spelling.</p>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 2 · MATCHES -->
+  <figure class="frame">
+    <figcaption><b>2</b> — Typed query, matches found, row 2 selected by keyboard.</figcaption>
+    <div class="screen">
+      <div class="util">
+        <div class="brand"><span class="mark">BS</span><span class="name">Client SharePoint Search</span></div>
+        <nav><a href="#" aria-current="page">Search</a><a href="#">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <h2 class="title">Find a client folder</h2>
+        <div class="search-wrap">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+          </svg>
+          <input type="search" value="marlo" aria-label="Search clients by name or Client ID">
+        </div>
+        <div class="msg">
+          <p class="hint">Press <kbd>Enter</kbd> to open the selected folder.</p>
+        </div>
+        <p class="count">4 clients match “marlo”</p>
+        <ul class="results" role="listbox" aria-label="Matching clients">
+          <li role="option">
+            <span class="who">
+              <span class="n"><mark>Marlo</mark>w Fabrication Ltd</span>
+              <span class="id">C-10428</span>
+            </span>
+            <a class="open" href="#">Open folder</a>
+          </li>
+          <li role="option" aria-selected="true">
+            <span class="who">
+              <span class="n"><mark>Marlo</mark>we &amp; Hart Chartered Surveyors</span>
+              <span class="id">C-11902</span>
+            </span>
+            <a class="open" href="#">Open folder</a>
+          </li>
+          <li role="option">
+            <span class="who">
+              <span class="n">Ashcroft <mark>Marlo</mark> Dental Care Ltd</span>
+              <span class="id">C-12237</span>
+            </span>
+            <a class="open" href="#">Open folder</a>
+          </li>
+          <li role="option">
+            <span class="who">
+              <span class="n"><mark>Marl</mark>b<mark>o</mark>rough Kitchens (Wembley) Ltd</span>
+              <span class="id">C-10071</span>
+            </span>
+            <a class="open" href="#">Open folder</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 3 · NO MATCH -->
+  <figure class="frame">
+    <figcaption><b>3</b> — No match. A dead end is a defect, so the state teaches.</figcaption>
+    <div class="screen">
+      <div class="util">
+        <div class="brand"><span class="mark">BS</span><span class="name">Client SharePoint Search</span></div>
+        <nav><a href="#" aria-current="page">Search</a><a href="#">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <h2 class="title">Find a client folder</h2>
+        <div class="search-wrap is-error">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+          </svg>
+          <input type="search" value="wetherbee holdings" aria-label="Search clients by name or Client ID">
+        </div>
+        <div class="msg">
+          <p class="refusal">No client matches “wetherbee holdings”, so nothing was opened.</p>
+        </div>
+        <div class="state">
+          <h3>No client found</h3>
+          <p>Nothing in the client list matches that. Common causes:</p>
+          <ul>
+            <li>The client trades under a different registered name — try a single distinctive word.</li>
+            <li>The client is new and the spreadsheet hasn't been re-uploaded yet — ask an admin.</li>
+            <li>You have a Client ID, not a name — IDs look like <strong>C-10428</strong>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 4 · NO LINK ON FILE -->
+  <figure class="frame">
+    <figcaption><b>4</b> — Client exists, folder link missing. Never guess a plausible folder.</figcaption>
+    <div class="screen">
+      <div class="stage" style="padding-top:var(--sp-6)">
+        <p class="count">2 clients match “halloran”</p>
+        <ul class="results" role="listbox" aria-label="Matching clients">
+          <li role="option">
+            <span class="who">
+              <span class="n"><mark>Halloran</mark> Groundworks Ltd</span>
+              <span class="id">C-11540</span>
+            </span>
+            <a class="open" href="#">Open folder</a>
+          </li>
+          <li role="option">
+            <span class="who">
+              <span class="n"><mark>Halloran</mark> Property Holdings Ltd</span>
+              <span class="id">C-11541</span>
+            </span>
+            <span class="nolink">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path d="M8 2.5v6.5"/><circle cx="8" cy="12.4" r=".9" fill="currentColor" stroke="none"/>
+              </svg>
+              No link on file
+            </span>
+          </li>
+        </ul>
+        <div class="collide" style="border-top:0;border-radius:0 0 var(--radius) var(--radius);margin-top:-1px">
+          <span>
+            <b>C-11541 has no SharePoint link in the spreadsheet.</b>
+            Ask an admin to add the folder URL and re-upload. Don't open a similarly-named
+            folder — it may belong to another client.
+          </span>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 5 · ID COLLISION -->
+  <figure class="frame">
+    <figcaption><b>5</b> — Two clients share a Client ID. The product stops rather than picking one.</figcaption>
+    <div class="screen">
+      <div class="stage" style="padding-top:var(--sp-6)">
+        <div class="search-wrap">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+          </svg>
+          <input type="search" value="C-10428" aria-label="Search clients by name or Client ID">
+        </div>
+        <div class="msg">
+          <p class="refusal">Two clients share C-10428. Pick the right one — Enter won't choose for you.</p>
+        </div>
+        <ul class="results" role="listbox" aria-label="Matching clients">
+          <li role="option">
+            <span class="who">
+              <span class="n">Marlow Fabrication Ltd</span>
+              <span class="id"><mark>C-10428</mark> · added Mar 2019</span>
+            </span>
+            <a class="open" href="#">Open folder</a>
+          </li>
+          <li role="option">
+            <span class="who">
+              <span class="n">Marlow Fabrication (Trading) Ltd</span>
+              <span class="id"><mark>C-10428</mark> · added Nov 2024</span>
+            </span>
+            <a class="open" href="#">Open folder</a>
+          </li>
+        </ul>
+        <div class="collide" style="border-radius:0 0 var(--radius) var(--radius);margin-top:-1px">
+          <span>
+            <b>Duplicate ID in the spreadsheet.</b>
+            Both rows were given C-10428. Open the one you meant, then tell an admin so the
+            duplicate can be corrected.
+          </span>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 6 · LOADING -->
+  <figure class="frame">
+    <figcaption><b>6</b> — Loading the client list. Skeletons match the row shape, not a spinner.</figcaption>
+    <div class="screen">
+      <div class="stage" style="padding-top:var(--sp-6)">
+        <div class="search-wrap">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.8 12.8 17 17"/>
+          </svg>
+          <input type="search" placeholder="Loading clients…" disabled aria-label="Search clients by name or Client ID">
+        </div>
+        <div class="msg"><p class="hint">Loading the client list. The box unlocks in a moment.</p></div>
+        <div class="results" aria-hidden="true">
+          <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 7 · LOGIN -->
+  <figure class="frame">
+    <figcaption><b>7</b> — Login, with a wrong password.</figcaption>
+    <div class="screen">
+      <div class="stage">
+        <div class="stage-narrow">
+          <div class="card">
+            <div class="brand" style="display:flex;align-items:center;gap:.55rem;margin-bottom:var(--sp-4)">
+              <span class="mark" style="width:28px;height:28px">BS</span>
+              <span class="name" style="font-size:.9375rem;font-weight:600">Benison Solvers</span>
+            </div>
+            <h2>Sign in</h2>
+            <p class="sub">Staff password. Ask the office manager if you don't have it.</p>
+            <label for="pw-a">Password</label>
+            <input id="pw-a" type="password" value="············" aria-invalid="true" aria-describedby="pw-a-err">
+            <p class="field-error" id="pw-a-err">Wrong password. Check caps lock and try again.</p>
+            <button type="button">Sign in</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 8 · ADMIN -->
+  <figure class="frame">
+    <figcaption><b>8</b> — Admin upload, after a successful import with warnings.</figcaption>
+    <div class="screen">
+      <div class="util">
+        <div class="brand"><span class="mark">BS</span><span class="name">Client SharePoint Search</span></div>
+        <nav><a href="#">Search</a><a href="#" aria-current="page">Admin</a><a href="#">Log out</a></nav>
+      </div>
+      <div class="stage">
+        <div style="max-width:34rem">
+          <div class="card">
+            <h2>Replace the client list</h2>
+            <p class="sub">Upload the SharePoint links spreadsheet. It replaces the current list
+               outright — clients missing from the new file will stop being findable.</p>
+
+            <label for="f-a">Spreadsheet (.xlsx)</label>
+            <input id="f-a" type="file">
+
+            <label for="ap-a" style="margin-top:var(--sp-4)">Admin password</label>
+            <input id="ap-a" type="password" placeholder="Required to replace the list">
+
+            <button type="button">Upload and replace</button>
+
+            <div class="upload-ok">
+              1,482 clients imported from <strong>SharePoint Links for Clients S.A.xlsx</strong>.
+              The search box is live with the new list.
+            </div>
+            <div class="upload-warn">
+              <strong>3 clients have no SharePoint link.</strong> They'll appear in search
+              marked “No link on file” until a URL is added:
+              <ul>
+                <li>Halloran Property Holdings Ltd</li>
+                <li>Redcliffe Joinery Ltd</li>
+                <li>Stanmore Physio Group Ltd</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+</div>
+</body>
+</html>
