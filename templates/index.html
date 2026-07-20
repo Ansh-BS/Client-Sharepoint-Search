@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Client SharePoint Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_v) }}">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="Benison Solvers">
-  </div>
+<header class="topbar topbar-end">
   <nav>
     <a href="{{ url_for('admin') }}">Admin</a>
     <a href="{{ url_for('logout') }}">Log out</a>
@@ -18,6 +18,10 @@
 </header>
 
 <main>
+  <div class="brandmark">
+    <img class="brandmark-logo" src="{{ url_for('static', filename='logo.png') }}" alt="">
+    <span class="wordmark">Client SharePoint Search</span>
+  </div>
   <h1 class="ask">Which client's folder?</h1>
   <p class="ask-sub">Partial names and typos still find the client.</p>
 

@@ -37,7 +37,7 @@ limiter = Limiter(get_remote_address, app=app, default_limits=[],
 # a URL they've seen before, so a deploy that changes those files leaves staff
 # staring at the old ones. Bump this on every deploy that touches either file;
 # the changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "4"
+ASSET_VERSION = "6"
 
 
 @app.context_processor
@@ -131,4 +131,10 @@ def admin():
 
 
 if __name__ == "__main__":
+    # Local dev: re-read templates when they change on disk. Without this, Jinja
+    # caches compiled templates for the whole process, so HTML edits only appear
+    # after a full restart while static/ files (style.css) refresh on their own —
+    # which looks like edits silently doing nothing. Production runs under WSGI,
+    # not this block, so it is unaffected.
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.run(host="127.0.0.1", port=5001, debug=False)
