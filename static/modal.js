@@ -37,6 +37,15 @@ if (dialog && typeof dialog.showModal === "function") {
   // and route through the server cancel instead.
   dialog.addEventListener("cancel", (e) => { e.preventDefault(); doCancel(); });
 
-  // Backdrop click = a click landing on the dialog element itself.
-  dialog.addEventListener("click", (e) => { if (e.target === dialog) doCancel(); });
+  // Backdrop click = a click that lands outside the dialog's box. Testing
+  // e.target === dialog alone would also fire on clicks in the dialog's own
+  // padding band (inside the visible modal), cancelling by accident; gate on
+  // the pointer being outside the box instead.
+  dialog.addEventListener("click", (e) => {
+    if (e.target !== dialog) return; // click was on inner content
+    const r = dialog.getBoundingClientRect();
+    const outside = e.clientX < r.left || e.clientX > r.right ||
+                    e.clientY < r.top || e.clientY > r.bottom;
+    if (outside) doCancel();
+  });
 }
