@@ -350,14 +350,14 @@ a.open:active { transform: translateY(1px); }
 
 label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .3rem; }
 label + input { margin-bottom: var(--sp-4); }
-input[type=password], input[type=file] {
+.field input, input[type=file] {
   width: 100%; padding: .6rem .75rem; font: inherit; font-size: .9375rem;
   color: var(--ink); background: var(--surface);
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
   transition: border-color var(--dur) var(--ease-out),
               box-shadow var(--dur) var(--ease-out);
 }
-input[type=password]:focus-visible, input[type=file]:focus-visible {
+.field input:focus-visible, input[type=file]:focus-visible {
   outline: none; border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
