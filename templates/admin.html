@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin — Client SharePoint Search</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_v) }}">
 </head>
 <body>
@@ -20,24 +17,70 @@
 
 <main>
   <div class="card">
+  {% if result %}
+    {# --- committed --------------------------------------------------- #}
+    <h1>Client list replaced</h1>
+    <p class="ok" role="status">{{ result.count }} clients imported. The search box is
+      live with the new list.</p>
+    {% if result.missing %}
+      <details open>
+        <summary>{{ result.missing|length }} client{{ '' if result.missing|length == 1 else 's' }} with no SharePoint link</summary>
+        <p>They stay searchable, but show “No link on file” until a URL is added
+          to the spreadsheet.</p>
+        <ul>{% for name in result.missing %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+    <p class="hint"><a href="{{ url_for('admin') }}">Upload another spreadsheet</a></p>
+
+  {% elif preview %}
+    {# --- review before committing ----------------------------------- #}
+    <h1>Review before replacing</h1>
+    <p class="sub"><strong>Nothing has changed yet.</strong> This is what the upload
+      will do to the live list. Confirm to apply it.</p>
+
+    <p class="review-line">Replaces the current <strong>{{ preview.current_count }}</strong>
+      client{{ '' if preview.current_count == 1 else 's' }} with
+      <strong>{{ preview.count }}</strong> from the new file{% if preview.added %},
+      <strong>{{ preview.added|length }}</strong> of them new{% endif %}.</p>
+
+    {% if preview.dropped %}
+      <details open class="danger-block">
+        <summary>{{ preview.dropped|length }} client{{ '' if preview.dropped|length == 1 else 's' }} will stop being findable</summary>
+        <p>{{ 'This client is' if preview.dropped|length == 1 else 'These clients are' }} in the current
+          list but not the new file. After replacing, searching for
+          {{ 'them' if preview.dropped|length != 1 else 'this name' }} returns nothing.</p>
+        <ul>{% for name in preview.dropped %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+
+    {% if preview.missing %}
+      <details{% if not preview.dropped %} open{% endif %}>
+        <summary>{{ preview.missing|length }} client{{ '' if preview.missing|length == 1 else 's' }} with no SharePoint link</summary>
+        <p>They stay searchable, but show “No link on file” until a URL is added
+          to the spreadsheet.</p>
+        <ul>{% for name in preview.missing %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+
+    <div class="btn-row">
+      <form method="post">
+        <input type="hidden" name="action" value="confirm">
+        <input type="hidden" name="token" value="{{ preview.token }}">
+        <button type="submit">Replace list with {{ preview.count }} client{{ '' if preview.count == 1 else 's' }}</button>
+      </form>
+      <form method="post">
+        <input type="hidden" name="action" value="cancel">
+        <button type="submit" class="secondary">Cancel</button>
+      </form>
+    </div>
+
+  {% else %}
+    {# --- upload form ------------------------------------------------- #}
     <h1>Replace the client list</h1>
     <p class="sub">Upload the SharePoint links spreadsheet. It replaces the current
-      list outright — any client missing from the new file stops being findable.</p>
+      list outright — you'll see exactly what changes before anything is saved.</p>
 
     {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-
-    {% if result %}
-      <p class="ok" role="status">{{ result.count }} clients imported. The search box is
-        live with the new list.</p>
-      {% if result.missing %}
-        <details open>
-          <summary>{{ result.missing|length }} client{{ '' if result.missing|length == 1 else 's' }} with no SharePoint link</summary>
-          <p>They stay searchable, but show “No link on file” until a URL is added
-            to the spreadsheet.</p>
-          <ul>{% for name in result.missing %}<li>{{ name }}</li>{% endfor %}</ul>
-        </details>
-      {% endif %}
-    {% endif %}
 
     <form method="post" enctype="multipart/form-data">
       <label for="file">Spreadsheet (.xlsx)</label>
@@ -66,12 +109,13 @@
         </button>
       </div>
 
-      <button type="submit">Upload and replace</button>
+      <button type="submit">Review changes</button>
     </form>
 
     <p class="hint">Expected layout: first sheet — column A Client ID,
       column B client name, column C cell whose hyperlink is the SharePoint
       folder. Header row is ignored.</p>
+  {% endif %}
   </div>
 </main>
 <script src="{{ url_for('static', filename='password.js', v=asset_v) }}"></script>
