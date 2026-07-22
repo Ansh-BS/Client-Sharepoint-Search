@@ -59,28 +59,36 @@ failure.
 - Animation: slide+fade in/out. Under `@media (prefers-reduced-motion:
   reduce)`, fade only, no transform.
 
-**Server flash bridge.** When a template has a transient message it renders,
-just before its scripts:
-```html
-<div id="flash" data-level="error" data-msg="Wrong admin password." hidden></div>
-```
-On load, `toast.js` reads `#flash` (if present and `data-msg` non-empty) and
-calls `toast(msg, level)`, then removes the node. This is how server-side
-messages become toasts without inline scripts (CSP `script-src 'self'`).
+Toasts fire only for **transient positive/neutral feedback** — never for
+errors. Errors are form-validation state: they must persist, and the app
+already renders them inline (`<p class="error" role="alert">` on login and
+admin; a rich `stateRow` with retry guidance in `search.js`). A toast that
+vanishes after 5 s would be strictly worse there, so all inline error rendering
+stays exactly as-is and unchanged.
 
-**Applied to:**
-- **Admin** transient errors — "Wrong admin password.", "No file selected.",
-  and `ParseError` text — move from the inline `.error` paragraph to the flash
-  bridge. Keep a `<noscript>`-safe inline render too (see Fallback).
-- **Login** wrong-password → flash bridge. The password field keeps its
-  existing `aria-invalid="true"` for non-visual and JS-off users.
-- **Search page** network/fetch failure → in `search.js`'s existing catch,
-  call `toast("Search failed — check your connection and try again.",
-  "error")`.
+**Two flash sources, both read by `toast.js` on load:**
 
-**Not applied to:** the destructive-success **result** panel and the
-missing/dropped **lists** — those are content you must read, so they stay as
-persistent panels, not transient toasts.
+1. **Server flash element** (success). On the admin **result** page the
+   template renders, just before its scripts:
+   ```html
+   <div id="flash" data-level="success"
+        data-msg="Client list replaced — {{ result.count }} clients now live." hidden></div>
+   ```
+   `toast.js` reads `#flash` (if present and `data-msg` non-empty), calls
+   `toast(msg, level)`, then removes the node. No inline script (CSP
+   `script-src 'self'`). This is additive: the persistent result panel still
+   renders the missing-links list.
+
+2. **Client one-shot** (cancel). The admin **Cancel** button's handler in
+   `modal.js` sets `sessionStorage["toast-pending"]` to
+   `{"msg":"Upload cancelled — nothing was changed.","level":"info"}` before
+   its form POSTs. After the redirect back to the upload form, `toast.js`
+   reads and clears that key and pops the toast. No server change for cancel.
+
+`toast.js` checks the server `#flash` first, then `sessionStorage`.
+
+**Not applied to:** form errors (stay inline, unchanged) and the
+missing/dropped **lists** (content you must read — stay as persistent panels).
 
 ### 2. Modal — `static/modal.js` + CSS
 
@@ -126,53 +134,59 @@ do today.
 
 ## File structure
 
-- Create `static/toast.js` — toast helper + flash-bridge reader. All pages.
-- Create `static/modal.js` — preview dialog controller. Admin only.
+- Create `static/toast.js` — toast helper + flash reader (server `#flash`
+  then `sessionStorage["toast-pending"]`). Loaded on **admin only** (the only
+  page that fires toasts).
+- Create `static/modal.js` — preview dialog controller + Cancel one-shot
+  toast flag. Admin only.
 - Create `static/upload.js` — dropzone + validation + loading. Admin only.
 - Modify `static/style.css` — add `.toast`, `.toast-container`,
   `dialog.modal` + `::backdrop`, `.dropzone` (+ `--over`, valid/invalid
   states). Reuse existing tokens (`--danger`, `--accent`, `--surface`,
-  `--radius`, `--dur`, `--ease-out`) and the existing reduced-motion block.
+  `--radius`, `--dur`, `--ease-out`, `--ok-ink`/`--ok-bg`/`--ok-line`) and the
+  existing reduced-motion block.
 - Modify `templates/admin.html`:
-  - upload form → dropzone markup + filename/validation slots; flash bridge
-    for errors; include `toast.js`, `upload.js`.
-  - preview card → wrapped in `<dialog class="modal" open>`; include
-    `modal.js`.
-  - keep `password.js` include.
-- Modify `templates/login.html` — flash bridge for wrong-password; include
-  `toast.js`.
-- Modify `templates/index.html` — include `toast.js` (search-failure toast).
-- Modify `static/search.js` — `toast(...)` in the existing fetch catch.
-- Modify `app.py` — pass the transient message + level to templates for the
-  flash bridge (a small `flash` dict or two vars); bump `ASSET_VERSION`.
+  - result state → render the `#flash` success element.
+  - upload form → dropzone markup + filename/validation slots.
+  - preview card → wrapped in `<dialog class="modal" open>`.
+  - include `toast.js`, `modal.js`, `upload.js` (keep `password.js`).
+  - inline `.error` rendering stays exactly as-is.
+- **No change** to `templates/login.html`, `templates/index.html`, or
+  `static/search.js` — their inline error handling is already correct, and
+  toasts do not apply there.
+- Modify `app.py` — **bump `ASSET_VERSION` only**. No logic change: the
+  success toast rides the already-server-rendered result page; cancel is
+  client-side.
 
 Each JS file has one responsibility and is small enough to reason about
-whole. Loading is per-page: pages only pull the modules they use.
+whole. All three load on admin only; no other page changes.
 
 ## Error handling & fallback
 
-- **JS disabled**: dialog renders inline (`open`), forms POST, server errors
-  render inline (`<noscript>`-safe: the template renders the inline `.error`
-  paragraph AND the flash bridge; `toast.js`, when it fires, removes the inline
-  `.error` to avoid double messaging).
+- **JS disabled**: dialog renders inline (`open`), forms POST, errors render
+  inline exactly as today (error rendering is server-side and untouched, so
+  there is no double-messaging to reconcile). The success `#flash` element is
+  `hidden`, so JS-off users simply don't get the extra success toast — the
+  result panel already states the outcome.
 - **`<dialog>` unsupported** (very old browsers): `showModal` absent →
   `modal.js` no-ops, card shows inline. Acceptable.
 - **Toast never blocks**: purely additive; failure to toast never breaks a
-  form submit.
+  form submit. `sessionStorage` access is wrapped in try/catch (may be
+  disabled) — the cancel toast is silently skipped if unavailable.
 
 ## Testing
 
-- **Server**: existing pytest suite (`tests/`, 24 passing — routes, auth,
-  admin preview/confirm) is unchanged and must stay green. Any `app.py` change
-  for the flash bridge must not alter status codes or the preview/confirm/
-  cancel behavior; add/adjust an admin test only if the message-passing shape
-  changes what a route returns.
+- **Server**: `app.py` change is a one-line `ASSET_VERSION` bump — no route
+  logic changes. The existing pytest suite (`tests/`, 24 passing — routes,
+  auth, admin preview/confirm) must stay green unchanged. No new server tests
+  needed (no server behavior added).
 - **JS**: DOM-only, no JS test harness in the repo. Verification is manual
   browser, documented step-by-step in the implementation plan — consistent
   with how the app's other CSS/JS is verified.
-- **a11y**: native `<dialog>` focus-trap + `Esc`; toast `aria-live` (polite)
-  and error `role="alert"` (assertive); `prefers-reduced-motion` honored;
-  dropzone reachable by keyboard via the wrapped `<label for>`/input.
+- **a11y**: native `<dialog>` focus-trap + `Esc`; toast container `aria-live`
+  (polite); `prefers-reduced-motion` honored; dropzone reachable by keyboard
+  via the wrapped `<label for>`/input. Inline errors keep their existing
+  `role="alert"`.
 
 ## Deploy note
 
