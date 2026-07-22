@@ -531,3 +531,13 @@ button.secondary:active { background: rgba(255, 255, 255, .06); transform: trans
   .toast { transform: none; transition: opacity var(--dur) var(--ease-out); }
   .toast--in { transform: none; }
 }
+
+/* --------------------------------------------------------------- modal */
+/* The preview dialog. Also carries .card, so background/border/radius/shadow/
+   padding come from .card; here we only size it and dim the backdrop. When
+   shown via showModal() the browser centres it in the top layer. */
+dialog.modal {
+  max-width: 32rem; width: calc(100vw - 2 * var(--sp-4));
+  color: var(--ink); /* dialog UA default colour is canvastext */
+}
+dialog.modal::backdrop { background: rgba(0, 0, 0, .55); }
