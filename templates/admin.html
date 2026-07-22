@@ -20,6 +20,8 @@
   {% if result %}
     {# --- committed --------------------------------------------------- #}
     <h1>Client list replaced</h1>
+    <div id="flash" data-level="success"
+         data-msg="Client list replaced — {{ result.count }} client{{ '' if result.count == 1 else 's' }} now live." hidden></div>
     <p class="ok" role="status">{{ result.count }} clients imported. The search box is
       live with the new list.</p>
     {% if result.missing %}
@@ -119,5 +121,6 @@
   </div>
 </main>
 <script src="{{ url_for('static', filename='password.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='toast.js', v=asset_v) }}"></script>
 </body>
 </html>

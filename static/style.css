@@ -498,3 +498,36 @@ button.secondary:active { background: rgba(255, 255, 255, .06); transform: trans
   #results li.skeleton { animation: none; background: var(--skeleton); }
   *, *::before, *::after { transition-duration: 1ms !important; }
 }
+
+/* -------------------------------------------------------------- toasts */
+/* Transient success/info feedback (admin only). Bottom-right stack; the
+   container is the aria-live region so messages are announced once. */
+.toast-container {
+  position: fixed; right: var(--sp-4); bottom: var(--sp-4); z-index: 100;
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  max-width: min(360px, calc(100vw - 2 * var(--sp-4)));
+}
+.toast {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: .7rem .8rem; border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border-strong); box-shadow: var(--lift);
+  font-size: .9375rem;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity var(--dur) var(--ease-out),
+              transform var(--dur) var(--ease-out);
+}
+.toast--in { opacity: 1; transform: none; }
+.toast--success { background: var(--ok-bg); color: var(--ok-ink); border-color: var(--ok-line); }
+.toast__msg { flex: 1; }
+/* Override the global full-width primary button for this inline dismiss. */
+.toast__close {
+  width: auto; min-height: 0; margin: 0; padding: 0 .2rem;
+  background: none; border: 0; color: inherit;
+  font-size: 1.15rem; line-height: 1; cursor: pointer; opacity: .7;
+}
+.toast__close:hover { background: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .toast { transform: none; transition: opacity var(--dur) var(--ease-out); }
+  .toast--in { transform: none; }
+}
