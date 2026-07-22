@@ -87,9 +87,13 @@
 
     {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
-    <form method="post" enctype="multipart/form-data">
-      <label for="file">Spreadsheet (.xlsx)</label>
-      <input id="file" type="file" name="file" accept=".xlsx" required>
+    <form method="post" enctype="multipart/form-data" data-role="upload-form">
+      <label class="dropzone" for="file">
+        <span class="dropzone__label">Spreadsheet (.xlsx)</span>
+        <span class="dropzone__hint">Drag the file here, or click to choose</span>
+        <input id="file" type="file" name="file" accept=".xlsx" required>
+      </label>
+      <p id="file-info" class="file-info" role="status" aria-live="polite"></p>
 
       <label for="admin_password">Admin password</label>
       <div class="field">
@@ -127,5 +131,6 @@
 <script src="{{ url_for('static', filename='password.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='toast.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='modal.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='upload.js', v=asset_v) }}"></script>
 </body>
 </html>

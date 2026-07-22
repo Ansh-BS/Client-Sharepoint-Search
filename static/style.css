@@ -541,3 +541,20 @@ dialog.modal {
   color: var(--ink); /* dialog UA default colour is canvastext */
 }
 dialog.modal::backdrop { background: rgba(0, 0, 0, .55); }
+
+/* ------------------------------------------------------------ dropzone */
+.dropzone {
+  display: block; cursor: pointer; text-align: center;
+  padding: var(--sp-6); margin-bottom: var(--sp-3);
+  border: 1.5px dashed var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-sunk);
+  transition: border-color var(--dur) var(--ease-out),
+              background var(--dur) var(--ease-out);
+}
+.dropzone--over { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone__label { display: block; font-weight: 600; }
+.dropzone__hint { display: block; font-size: .8125rem; color: var(--muted); margin-top: .2rem; }
+.dropzone input[type=file] { display: block; width: 100%; margin-top: var(--sp-3); font-size: .8125rem; }
+.file-info { font-size: .8125rem; margin: 0 0 var(--sp-4); min-height: 1.2em; }
+.file-info--ok { color: var(--ok-ink); }
+.file-info--bad { color: var(--danger); }
