@@ -47,85 +47,154 @@
    a.open, .nolink, li.state, li.skeleton, li.recent, li.selected, mark.match.
    Changing a class name here means changing it there. */
 
-:root {
-  color-scheme: dark;   /* native controls (scrollbar, ×, file button) go dark */
+/* Light — HeroUI's own palette. Its published oklch values for the surfaces,
+   ink and accent; the overlays, glows and semantic fills are derived from
+   them because HeroUI has no direct equivalent.
 
-  /* Surfaces. DuckDuckGo dark: tinted near-black page, one step up for the
-     object (box / panel / card), never pure #000. */
-  --bg: #1c1c1e;
-  --surface: #2b2b2d;
-  --surface-sunk: #242426;
-  --border: #3a3a3d;
+   Contrast measured 2026-07-23 by converting each oklch() pair to linear
+   sRGB (Björn Ottosson's OKLab matrices) and computing WCAG relative
+   luminance / contrast ratio with a throwaway script — not guessed, not
+   carried over from the dark build's comment, which only ever covered dark.
+     --muted / --bg            4.56:1  (needs 4.5:1) — --muted darkened from
+                                                        L 55.17% to 54.5% to pass;
+                                                        it measured 4.43:1 at 55.17%
+     --muted / --surface       4.97:1  (needs 4.5:1)
+     --ink-soft / --surface   10.45:1  (needs 4.5:1)
+     --danger / --surface      6.08:1  (needs 4.5:1)
+     --warn-ink / --warn-bg    6.03:1  (needs 4.5:1)
+     --ok-ink / --ok-bg        6.42:1  (needs 4.5:1)
+     --accent-ink / --accent-soft 6.42:1  (needs 4.5:1)
+     --accent / --surface      3.68:1  (needs 3:1, non-text) */
+:root {
+  color-scheme: light;
+
+  --bg: oklch(97.02% 0 0);
+  --surface: #fff;
+  --surface-sunk: oklch(95.24% .0013 286.37);
+  --border: oklch(90% .004 286.32);
+  --border-strong: oklch(84% .005 286.32);
+
+  --ink: oklch(21.03% .0059 285.89);
+  --ink-soft: oklch(37% .008 285.9);
+  --muted: oklch(54.5% .0138 285.94);
+
+  --accent: oklch(62.04% .195 253.83);
+  --accent-hover: oklch(56% .195 253.83);
+  --accent-active: oklch(50% .19 253.83);
+  --accent-disabled: oklch(85% .05 253.83);
+  --accent-soft: oklch(95% .03 253.83);
+  --accent-ink: oklch(45% .17 253.83);
+  --accent-ring: oklch(62.04% .195 253.83 / .35);
+
+  --skeleton: oklch(93% .002 286.3);
+  --skeleton-sheen: oklch(96.5% .002 286.3);
+
+  --danger: oklch(52% .19 24.63);
+  --danger-line: oklch(58% .2 24.63);
+  --warn-ink: oklch(48% .12 72.33);
+  --warn-bg: oklch(96.5% .03 85);
+  --warn-line: oklch(88% .06 80);
+  --ok-ink: oklch(45% .12 150.81);
+  --ok-bg: oklch(96.5% .03 155);
+  --ok-line: oklch(87% .07 152);
+
+  /* Light elevation is HeroUI's own surface-shadow: a hairline, not a pool. */
+  --lift: 0 2px 4px 0 #0000000a, 0 1px 2px 0 #0000000f, 0 0 1px 0 #0000000f;
+
+  --overlay: oklch(0% 0 0 / .06);
+  --cursor-glow: oklch(0% 0 0 / .04);
+  --cursor-glow-accent: oklch(62.04% .195 253.83 / .10);
+  --danger-ring: oklch(52% .19 24.63 / .22);
+  --danger-soft: oklch(52% .19 24.63 / .08);
+  --danger-soft-line: oklch(52% .19 24.63 / .28);
+  --backdrop: oklch(0% 0 0 / .4);
+}
+
+/* Values that do not vary by theme. Kept in one block so the two palettes
+   above and below cannot drift apart on spacing or motion.
+
+   The gold action is here on purpose. HeroUI ships a single accent; this app
+   runs two — blue for wherever the keyboard is (focus, selection, matched
+   letters) and gold for the one primary action. Collapsing them would paint
+   the "Open folder" pill the same colour as the focus ring.
+
+   Placed after the light block (not before, as first drafted) because
+   test_light_and_dark_define_the_same_tokens compares whichever block is
+   textually the *first* plain :root rule in the file against the dark
+   override below — that first block has to be the light palette itself, or
+   the comparison picks up these theme-independent names too and never
+   matches the dark block's token set. */
+:root {
+  --action: #f2c66b;
+  --action-hover: #f6d488;
+  --action-active: #e3b757;
+  --action-disabled: #6b5e3d;
+  --on-accent: #1c1c1e;   /* dark ink sits on the gold in both themes */
+
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .7rem;
+  --sp-4: 1rem; --sp-6: 1.5rem; --sp-8: 2rem;
+  --radius: 12px;
+  --radius-sm: 7px;
+
+  --dur: 180ms;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, Menlo, monospace;
+  --display: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --icon-open: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M14 5h5v5'/><path d='M19 5l-8 8'/><path d='M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/></svg>");
+}
+
+/* Dark — HeroUI's dark palette for surfaces, ink and border. Everything else
+   is the original hand-tuned dark build, which was designed against this page
+   and measured against it.
+
+   One deliberate divergence: HeroUI sets --surface-shadow to none in dark and
+   separates surfaces by lightness alone. This layout does not work that way —
+   the search box is a single object floating at the optical centre of an empty
+   page, and --lift is what makes it float. So the dark shadow stays. */
+:root.dark {
+  color-scheme: dark;
+
+  --bg: oklch(12% .005 285.823);
+  --surface: oklch(21.03% .0059 285.89);
+  --surface-sunk: oklch(25.7% .0037 286.14);
+  --border: oklch(28% .006 286.033);
   --border-strong: #48484c;
 
-  /* Ink. --muted clears 4.5:1 on both --surface and --bg. */
-  --ink: #f4f4f5;
+  --ink: oklch(99.11% 0 0);
   --ink-soft: #c8c8cc;
-  --muted: #9d9da4;
-  --on-accent: #1c1c1e;   /* dark text sits on the gold action */
+  --muted: oklch(70.5% .015 286.067);
 
-  /* Brand. Blue = selection / focus / match (where the keyboard is). Gold = the
-     one primary action, echoing the ref's single gold CTA. */
-  --accent: #5b8cff;
+  --accent: oklch(62.04% .195 253.83);
   --accent-hover: #7099ff;
   --accent-active: #4a7dff;
   --accent-disabled: #3a4a75;
   --accent-soft: #24324e;
   --accent-ink: #accbff;
   --accent-ring: rgba(91, 140, 255, .4);
-  --action: #f2c66b;
-  --action-hover: #f6d488;
-  --action-active: #e3b757;
-  --action-disabled: #6b5e3d;
 
-  /* Overlays and glows. These were literal rgba() in the rules below, which
-     made them impossible to re-theme — a white-on-white hover in light mode.
-     Same values as before; only the indirection is new. */
-  --overlay: rgba(255, 255, 255, .07);        /* topbar link hover; secondary button hover/active */
-  --cursor-glow: rgba(255, 255, 255, .06);    /* cursor-follow hover glow on the search box, distinct from focus */
-  --cursor-glow-accent: rgba(91, 140, 255, .14); /* cursor-follow hover glow on result rows, distinct from selection */
-  --danger-ring: rgba(220, 38, 38, .18);      /* invalid-input focus ring */
-  --danger-soft: rgba(255, 90, 90, .12);      /* error box fill */
-  --danger-soft-line: rgba(255, 90, 90, .38); /* error box border */
-  --backdrop: rgba(0, 0, 0, .55);             /* modal scrim */
-
-  /* Loading */
   --skeleton: #303033;
   --skeleton-sheen: #3c3c40;
 
-  /* Semantic — tuned for the dark surface. */
-  --danger: #ff7a7a;
+  --danger: oklch(65.32% .2328 25.74);
   --danger-line: #ff5a5a;
-  --warn-ink: #f2c66b;
+  --warn-ink: oklch(82.03% .1388 76.34);
   --warn-bg: #352b18;
   --warn-line: #574726;
   --ok-ink: #6ee7b7;
   --ok-bg: #17281f;
   --ok-line: #265c44;
 
-  /* Scale */
-  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .7rem;
-  --sp-4: 1rem; --sp-6: 1.5rem; --sp-8: 2rem;
-  --radius: 12px;
-  --radius-sm: 7px;
-
-  /* Elevation on dark: deeper black, higher opacity so the lifted object still
-     separates from the near-black page. */
   --lift: 0 1px 2px rgba(0, 0, 0, .4), 0 18px 40px -16px rgba(0, 0, 0, .7);
 
-  /* Motion */
-  --dur: 180ms;
-  --ease-out: cubic-bezier(.22, 1, .36, 1);
-
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, Menlo, monospace;
-
-  /* Display face for the wordmark + headings: rounded geometric bold, matching
-     the ref's DuckDuckGo Sans. Poppins loads from Google Fonts; system-ui if not. */
-  --display: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
-
-  /* open-in-new glyph, painted with the button's ink via mask. Echoes the
-     ref CTA carrying an icon inside the label ("Download Browser ↓"). */
-  --icon-open: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M14 5h5v5'/><path d='M19 5l-8 8'/><path d='M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/></svg>");
+  --overlay: rgba(255, 255, 255, .07);
+  --cursor-glow: rgba(255, 255, 255, .06);
+  --cursor-glow-accent: rgba(91, 140, 255, .14);
+  --danger-ring: rgba(220, 38, 38, .18);
+  --danger-soft: rgba(255, 90, 90, .12);
+  --danger-soft-line: rgba(255, 90, 90, .38);
+  --backdrop: rgba(0, 0, 0, .55);
 }
 
 * { box-sizing: border-box; }
