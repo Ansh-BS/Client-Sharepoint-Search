@@ -85,16 +85,29 @@ So: **HeroUI's neutrals and blue accent, the existing gold action.** HeroUI's
 `--accent: oklch(62.04% .195 253.83)` is a blue in the same family as `#5b8cff`, so
 the substitution is natural. Gold has no HeroUI equivalent and is kept as-is.
 
-### Dark keeps its shadow
+### Both themes diverge from HeroUI's shadow
 
 HeroUI sets `--surface-shadow: 0 0 0 0 transparent inset` in dark mode — it drops
 elevation entirely and separates surfaces by lightness alone. The vanilla composition
 does not work that way: the search box is a single object floating at the optical
 centre of an empty page, and `--lift` is what makes it float.
 
-So `--lift` takes HeroUI's shadow in **light** and keeps the vanilla dark shadow in
-**dark**. This is the one place we deliberately diverge from HeroUI, and the reason is
-recorded in a CSS comment.
+The first pass of this work took HeroUI's shadow as-is in **light** (a hairline —
+HeroUI can afford that because it doesn't rely on elevation to separate surfaces) and
+kept the vanilla dark shadow pool in **dark**. That was wrong in the same direction as
+the dark case, just discovered later, by a whole-branch review that measured it:
+light's `--surface` vs `--bg` is 1.09:1 and the old `--border-strong` vs `--surface`
+was 1.64:1, so nothing but a 1.5:1 line told the box, panel, cards and the info toast
+apart from the empty page under them. HeroUI can drop elevation in light because *it*
+doesn't depend on the object floating; this layout does, in both themes.
+
+So the divergence goes both ways: `--lift` gets its own shadow pool in **light**
+(softer than dark's, since a dark-strength pool reads as a stain on a near-white
+page) and keeps the original vanilla pool in **dark**. `--border-strong` was also
+raised in light, from L 84% to L 62%, clearing 3:1 (non-text contrast) against both
+`--surface` and `--bg` — the search input's border is otherwise the only cue that it's
+a text field. Both reasons are recorded in the CSS comments next to `--lift` and
+`:root.dark`.
 
 ### Derived values are hardcoded, not computed
 

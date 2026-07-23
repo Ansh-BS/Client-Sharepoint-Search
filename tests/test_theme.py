@@ -19,12 +19,16 @@ def _body(text):
 
 def test_no_literal_colours_outside_the_token_block():
     """Rules must read var(--token). A literal here cannot be re-themed,
-    which is exactly how a light mode ends up with white-on-white."""
+    which is exactly how a light mode ends up with white-on-white.
+
+    No filter for the open-in-new icon's %23000 SVG stroke here: _body()
+    already returns only the text after the *last* :root block, and that
+    icon's data URI lives in the shared block before it — so it is excluded
+    by _body() itself, not by a filter here. A filter on this list would
+    also exempt a genuine literal #000/#000000 in a rule, which in light
+    mode is the worst possible literal to miss (invisible black-on-black)."""
     body = _body(CSS.read_text(encoding="utf-8"))
     literals = re.findall(r"rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}\b", body)
-    # The open-in-new icon is an SVG data URI whose stroke is repainted by
-    # mask-image, so its %23000 is not a rendered colour.
-    literals = [c for c in literals if not c.startswith("#000")]
     assert literals == [], f"literal colours outside :root: {literals}"
 
 
@@ -77,6 +81,18 @@ def test_login_page_loads_theme_js(client):
     html = client.get("/login").get_data(as_text=True)
     assert "theme.js" in html
     assert html.index("theme.js") < html.index("style.css")
+
+
+def test_theme_js_and_stylesheet_carry_the_asset_version(logged_in):
+    """A deploy that changes style.css or theme.js but leaves the browser's
+    cached copy in place is exactly the failure mode this project has hit
+    before (see reference_sharepoint_template_cache). Both URLs must carry
+    the current ASSET_VERSION as a `?v=` cache-buster."""
+    from app import ASSET_VERSION
+    for path in ("/", "/admin", "/login"):
+        html = logged_in.get(path).get_data(as_text=True)
+        assert f"theme.js?v={ASSET_VERSION}" in html, f"{path}: theme.js missing ?v="
+        assert f"style.css?v={ASSET_VERSION}" in html, f"{path}: style.css missing ?v="
 
 
 def test_theme_js_is_not_deferred_or_async():
