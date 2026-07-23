@@ -594,7 +594,13 @@ button.secondary:active { background: var(--overlay); transform: scale(.97); }
   .search-wrap.shake { animation: none; }
   #results li.skeleton { animation: none; background: var(--skeleton); }
   *, *::before, *::after { transition-duration: 1ms !important; }
-  button:active { transform: none; }
+  /* button.secondary:active outside this block is (0,2,1) — same specificity
+     as button:active alone would be too weak to beat it. Matching the
+     selector here brings the guard to equal specificity, and because this
+     rule comes later in the cascade it wins the tie, actually disabling the
+     scale for both the primary and secondary buttons. */
+  button:active,
+  button.secondary:active { transform: none; }
 }
 
 /* -------------------------------------------------------------- toasts */

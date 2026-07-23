@@ -124,3 +124,27 @@ def test_reduced_motion_disables_the_button_transform():
     text = CSS.read_text(encoding="utf-8")
     block = text[text.index("prefers-reduced-motion"):]
     assert "button:active" in block and "transform: none" in block
+
+
+def test_secondary_button_press_is_a_scale_not_a_nudge():
+    """Pinned on button.secondary:active specifically, not the stylesheet at
+    large: the base button:active rule already satisfies a whole-file search
+    for scale(.97), so a regression here (e.g. back to translateY(1px)) would
+    slip past a looser assertion while Cancel visibly presses differently
+    from Replace beside it."""
+    text = CSS.read_text(encoding="utf-8")
+    start = text.index("button.secondary:active {")
+    rule = text[start:text.index("}", start)]
+    assert "transform: scale(.97)" in rule
+    assert "translateY" not in rule
+
+
+def test_reduced_motion_disables_both_button_transforms():
+    """button.secondary:active is (0,2,1) — more specific than a bare
+    button:active guard, so the guard must name the secondary selector too
+    or it silently loses the cascade and the Cancel button keeps animating
+    for users who asked their OS to reduce motion."""
+    text = CSS.read_text(encoding="utf-8")
+    block = text[text.index("prefers-reduced-motion"):]
+    assert "button.secondary:active" in block
+    assert "transform: none" in block
