@@ -48,7 +48,7 @@ Nine colours are written as literal `rgba()` **below** the token block. They all
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: nine new token names available to Task 2 — `--overlay`, `--overlay-strong`, `--glow-ink`, `--glow-accent`, `--danger-ring`, `--danger-soft`, `--danger-soft-line` and `--backdrop`.
+- Produces: nine new token names available to Task 2 — `--overlay`, `--overlay`, `--cursor-glow`, `--cursor-glow-accent`, `--danger-ring`, `--danger-soft`, `--danger-soft-line` and `--backdrop`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -92,9 +92,8 @@ In `static/style.css`, inside `:root`, immediately after the `--action-disabled`
      made them impossible to re-theme — a white-on-white hover in light mode.
      Same values as before; only the indirection is new. */
   --overlay: rgba(255, 255, 255, .07);        /* topbar link hover */
-  --overlay-strong: rgba(255, 255, 255, .06); /* secondary button hover */
-  --glow-ink: rgba(255, 255, 255, .06);       /* focus glow inside the box */
-  --glow-accent: rgba(91, 140, 255, .14);     /* selected-row glow */
+  --cursor-glow: rgba(255, 255, 255, .06);       /* focus glow inside the box */
+  --cursor-glow-accent: rgba(91, 140, 255, .14);     /* selected-row glow */
   --danger-ring: rgba(220, 38, 38, .18);      /* invalid-input focus ring */
   --danger-soft: rgba(255, 90, 90, .12);      /* error box fill */
   --danger-soft-line: rgba(255, 90, 90, .38); /* error box border */
@@ -108,13 +107,13 @@ Nine edits, each replacing the literal with `var(--token)`:
 | Line | Was | Becomes |
 |---|---|---|
 | 148 | `background: rgba(255, 255, 255, .07);` | `background: var(--overlay);` |
-| 238 | `rgba(255, 255, 255, .06), transparent 70%);` | `var(--glow-ink), transparent 70%);` |
+| 238 | `rgba(255, 255, 255, .06), transparent 70%);` | `var(--cursor-glow), transparent 70%);` |
 | 247 | `0 0 0 3px rgba(220, 38, 38, .18);` | `0 0 0 3px var(--danger-ring);` |
-| 312 | `rgba(91, 140, 255, .14), transparent 70%);` | `var(--glow-accent), transparent 70%);` |
+| 312 | `rgba(91, 140, 255, .14), transparent 70%);` | `var(--cursor-glow-accent), transparent 70%);` |
 | 443 | `background: rgba(255, 90, 90, .12); border: 1px solid rgba(255, 90, 90, .38);` | `background: var(--danger-soft); border: 1px solid var(--danger-soft-line);` |
 | 475 | `background: rgba(255, 90, 90, .1); border-color: rgba(255, 90, 90, .38);` | `background: var(--danger-soft); border-color: var(--danger-soft-line);` |
-| 491 | `background: rgba(255, 255, 255, .06);` | `background: var(--overlay-strong);` |
-| 492 | `background: rgba(255, 255, 255, .06);` | `background: var(--overlay-strong);` |
+| 491 | `background: rgba(255, 255, 255, .06);` | `background: var(--overlay);` |
+| 492 | `background: rgba(255, 255, 255, .06);` | `background: var(--overlay);` |
 | 543 | `background: rgba(0, 0, 0, .55);` | `background: var(--backdrop);` |
 
 Line 475 used `.1` where 443 used `.12`; both become `--danger-soft`. That is a deliberate one-off consolidation — a two-hundredths alpha difference between two error boxes is drift, not design.
@@ -274,9 +273,8 @@ Then light, the default:
   --lift: 0 2px 4px 0 #0000000a, 0 1px 2px 0 #0000000f, 0 0 1px 0 #0000000f;
 
   --overlay: oklch(0% 0 0 / .06);
-  --overlay-strong: oklch(0% 0 0 / .05);
-  --glow-ink: oklch(0% 0 0 / .04);
-  --glow-accent: oklch(62.04% .195 253.83 / .10);
+  --cursor-glow: oklch(0% 0 0 / .04);
+  --cursor-glow-accent: oklch(62.04% .195 253.83 / .10);
   --danger-ring: oklch(52% .19 24.63 / .22);
   --danger-soft: oklch(52% .19 24.63 / .08);
   --danger-soft-line: oklch(52% .19 24.63 / .28);
@@ -331,9 +329,8 @@ Then dark:
   --lift: 0 1px 2px rgba(0, 0, 0, .4), 0 18px 40px -16px rgba(0, 0, 0, .7);
 
   --overlay: rgba(255, 255, 255, .07);
-  --overlay-strong: rgba(255, 255, 255, .06);
-  --glow-ink: rgba(255, 255, 255, .06);
-  --glow-accent: rgba(91, 140, 255, .14);
+  --cursor-glow: rgba(255, 255, 255, .06);
+  --cursor-glow-accent: rgba(91, 140, 255, .14);
   --danger-ring: rgba(220, 38, 38, .18);
   --danger-soft: rgba(255, 90, 90, .12);
   --danger-soft-line: rgba(255, 90, 90, .38);
@@ -646,16 +643,16 @@ button:active { background: var(--action-active); transform: scale(.97); }
 `button.secondary` sets no `border-radius`, so it picks up the pill automatically. But it **does** override `:active`, and that line still carries the old nudge — leaving the Cancel button beside a scaling Replace button pressing differently. Change:
 
 ```css
-button.secondary:active { background: var(--overlay-strong); transform: translateY(1px); }
+button.secondary:active { background: var(--overlay); transform: translateY(1px); }
 ```
 
 to:
 
 ```css
-button.secondary:active { background: var(--overlay-strong); transform: scale(.97); }
+button.secondary:active { background: var(--overlay); transform: scale(.97); }
 ```
 
-(the background is already `var(--overlay-strong)` after Task 1).
+(the background is already `var(--overlay)` after Task 1).
 
 `button.reveal` and `.theme-toggle` both override `border-radius` and `transform` on purpose and must keep doing so: the reveal sits flush inside the password field's right edge, and the toggle is a nav-sized control. Leave both alone.
 
