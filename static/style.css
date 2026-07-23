@@ -78,6 +78,18 @@
   --action-active: #e3b757;
   --action-disabled: #6b5e3d;
 
+  /* Overlays and glows. These were literal rgba() in the rules below, which
+     made them impossible to re-theme — a white-on-white hover in light mode.
+     Same values as before; only the indirection is new. */
+  --overlay: rgba(255, 255, 255, .07);        /* topbar link hover */
+  --overlay-strong: rgba(255, 255, 255, .06); /* secondary button hover */
+  --glow-ink: rgba(255, 255, 255, .06);       /* focus glow inside the box */
+  --glow-accent: rgba(91, 140, 255, .14);     /* selected-row glow */
+  --danger-ring: rgba(220, 38, 38, .18);      /* invalid-input focus ring */
+  --danger-soft: rgba(255, 90, 90, .12);      /* error box fill */
+  --danger-soft-line: rgba(255, 90, 90, .38); /* error box border */
+  --backdrop: rgba(0, 0, 0, .55);             /* modal scrim */
+
   /* Loading */
   --skeleton: #303033;
   --skeleton-sheen: #3c3c40;
@@ -145,7 +157,7 @@ body {
   padding: .25rem .55rem; border-radius: var(--radius-sm);
   transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
 }
-.topbar nav a:hover { background: rgba(255, 255, 255, .07); color: var(--ink); }
+.topbar nav a:hover { background: var(--overlay); color: var(--ink); }
 .topbar nav a[aria-current] { color: var(--ink); font-weight: 600; }
 
 /* The stage. Vertical centring with no results is what puts the box at the
@@ -235,7 +247,7 @@ main:has(#results:not(:empty)) input[type=search] { border-bottom-color: var(--b
   border-radius: inherit; pointer-events: none; z-index: 1; opacity: 0;
   transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(255, 255, 255, .06), transparent 70%);
+    var(--glow-ink), transparent 70%);
 }
 .search-wrap.glow::after { opacity: 1; }
 
@@ -244,7 +256,7 @@ main:has(#results:not(:empty)) input[type=search] { border-bottom-color: var(--b
 .search-wrap.shake { animation: shake .35s var(--ease-out); }
 .search-wrap.shake input {
   border-color: var(--danger-line);
-  box-shadow: var(--lift), 0 0 0 3px rgba(220, 38, 38, .18);
+  box-shadow: var(--lift), 0 0 0 3px var(--danger-ring);
 }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -309,7 +321,7 @@ kbd {
   border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0;
   transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(91, 140, 255, .14), transparent 70%);
+    var(--glow-accent), transparent 70%);
 }
 #results li.glow::before { opacity: 1; }
 
@@ -440,7 +452,7 @@ button.reveal[aria-pressed="true"] { color: var(--accent); }
 .error {
   margin: 0 0 var(--sp-4); padding: .6rem .8rem;
   border-radius: var(--radius-sm);
-  background: rgba(255, 90, 90, .12); border: 1px solid rgba(255, 90, 90, .38); color: var(--danger);
+  background: var(--danger-soft); border: 1px solid var(--danger-soft-line); color: var(--danger);
   font-size: .875rem;
 }
 .ok {
@@ -472,7 +484,7 @@ details ul { margin: .4rem 0 0; padding-left: 1.1rem; max-height: 38vh; overflow
 .review-line strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 
 details.danger-block {
-  background: rgba(255, 90, 90, .1); border-color: rgba(255, 90, 90, .38);
+  background: var(--danger-soft); border-color: var(--danger-soft-line);
   color: var(--danger);
 }
 details.danger-block summary { color: var(--danger); }
@@ -488,8 +500,8 @@ button.secondary {
   background: none; color: var(--ink-soft);
   border: 1px solid var(--border-strong);
 }
-button.secondary:hover { background: rgba(255, 255, 255, .06); color: var(--ink); }
-button.secondary:active { background: rgba(255, 255, 255, .06); transform: translateY(1px); }
+button.secondary:hover { background: var(--overlay-strong); color: var(--ink); }
+button.secondary:active { background: var(--overlay-strong); transform: translateY(1px); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep the shake's border/ring cue; drop the movement. The class is removed
@@ -540,7 +552,7 @@ dialog.modal {
   max-width: 32rem; width: calc(100vw - 2 * var(--sp-4));
   color: var(--ink); /* dialog UA default colour is canvastext */
 }
-dialog.modal::backdrop { background: rgba(0, 0, 0, .55); }
+dialog.modal::backdrop { background: var(--backdrop); }
 
 /* ------------------------------------------------------------ dropzone */
 .dropzone {
