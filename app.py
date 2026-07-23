@@ -35,11 +35,12 @@ app.config["SESSION_COOKIE_SECURE"] = (
 limiter = Limiter(get_remote_address, app=app, default_limits=[],
                    storage_uri="memory://")
 
-# Cache-busting tag for style.css and search.js. Browsers reuse a cached copy of
-# a URL they've seen before, so a deploy that changes those files leaves staff
-# staring at the old ones. Bump this on every deploy that touches either file;
-# the changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "10"
+# Cache-busting tag for the CSS and JS under static/. Browsers reuse a cached
+# copy of a URL they've seen before, so a deploy that changes those files
+# leaves staff staring at the old ones. Bump this on every deploy that touches
+# style.css, search.js, theme.js or any of the other static scripts; the
+# changed URL forces a fresh fetch. Templates read it via asset_v().
+ASSET_VERSION = "11"
 
 
 @app.context_processor
