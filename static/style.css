@@ -81,10 +81,9 @@
   /* Overlays and glows. These were literal rgba() in the rules below, which
      made them impossible to re-theme — a white-on-white hover in light mode.
      Same values as before; only the indirection is new. */
-  --overlay: rgba(255, 255, 255, .07);        /* topbar link hover */
-  --overlay-strong: rgba(255, 255, 255, .06); /* secondary button hover */
-  --glow-ink: rgba(255, 255, 255, .06);       /* focus glow inside the box */
-  --glow-accent: rgba(91, 140, 255, .14);     /* selected-row glow */
+  --overlay: rgba(255, 255, 255, .07);        /* topbar link hover; secondary button hover/active */
+  --cursor-glow: rgba(255, 255, 255, .06);    /* cursor-follow hover glow on the search box, distinct from focus */
+  --cursor-glow-accent: rgba(91, 140, 255, .14); /* cursor-follow hover glow on result rows, distinct from selection */
   --danger-ring: rgba(220, 38, 38, .18);      /* invalid-input focus ring */
   --danger-soft: rgba(255, 90, 90, .12);      /* error box fill */
   --danger-soft-line: rgba(255, 90, 90, .38); /* error box border */
@@ -247,7 +246,7 @@ main:has(#results:not(:empty)) input[type=search] { border-bottom-color: var(--b
   border-radius: inherit; pointer-events: none; z-index: 1; opacity: 0;
   transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
-    var(--glow-ink), transparent 70%);
+    var(--cursor-glow), transparent 70%);
 }
 .search-wrap.glow::after { opacity: 1; }
 
@@ -321,7 +320,7 @@ kbd {
   border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0;
   transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
-    var(--glow-accent), transparent 70%);
+    var(--cursor-glow-accent), transparent 70%);
 }
 #results li.glow::before { opacity: 1; }
 
@@ -500,8 +499,8 @@ button.secondary {
   background: none; color: var(--ink-soft);
   border: 1px solid var(--border-strong);
 }
-button.secondary:hover { background: var(--overlay-strong); color: var(--ink); }
-button.secondary:active { background: var(--overlay-strong); transform: translateY(1px); }
+button.secondary:hover { background: var(--overlay); color: var(--ink); }
+button.secondary:active { background: var(--overlay); transform: translateY(1px); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep the shake's border/ring cue; drop the movement. The class is removed
