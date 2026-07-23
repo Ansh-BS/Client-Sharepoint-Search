@@ -48,7 +48,7 @@ Nine colours are written as literal `rgba()` **below** the token block. They all
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: nine new token names available to Task 2 — `--overlay`, `--overlay-strong`, `--glow-ink`, `--glow-accent`, `--danger-ring`, `--danger-soft`, `--danger-soft-line`, `--backdrop`, and `--accent-glow`.
+- Produces: nine new token names available to Task 2 — `--overlay`, `--overlay-strong`, `--glow-ink`, `--glow-accent`, `--danger-ring`, `--danger-soft`, `--danger-soft-line` and `--backdrop`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -95,7 +95,6 @@ In `static/style.css`, inside `:root`, immediately after the `--action-disabled`
   --overlay-strong: rgba(255, 255, 255, .06); /* secondary button hover */
   --glow-ink: rgba(255, 255, 255, .06);       /* focus glow inside the box */
   --glow-accent: rgba(91, 140, 255, .14);     /* selected-row glow */
-  --accent-glow: rgba(91, 140, 255, .14);     /* alias, kept for clarity */
   --danger-ring: rgba(220, 38, 38, .18);      /* invalid-input focus ring */
   --danger-soft: rgba(255, 90, 90, .12);      /* error box fill */
   --danger-soft-line: rgba(255, 90, 90, .38); /* error box border */
@@ -278,7 +277,6 @@ Then light, the default:
   --overlay-strong: oklch(0% 0 0 / .05);
   --glow-ink: oklch(0% 0 0 / .04);
   --glow-accent: oklch(62.04% .195 253.83 / .10);
-  --accent-glow: oklch(62.04% .195 253.83 / .10);
   --danger-ring: oklch(52% .19 24.63 / .22);
   --danger-soft: oklch(52% .19 24.63 / .08);
   --danger-soft-line: oklch(52% .19 24.63 / .28);
@@ -336,7 +334,6 @@ Then dark:
   --overlay-strong: rgba(255, 255, 255, .06);
   --glow-ink: rgba(255, 255, 255, .06);
   --glow-accent: rgba(91, 140, 255, .14);
-  --accent-glow: rgba(91, 140, 255, .14);
   --danger-ring: rgba(220, 38, 38, .18);
   --danger-soft: rgba(255, 90, 90, .12);
   --danger-soft-line: rgba(255, 90, 90, .38);
