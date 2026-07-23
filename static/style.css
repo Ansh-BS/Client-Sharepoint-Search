@@ -47,74 +47,197 @@
    a.open, .nolink, li.state, li.skeleton, li.recent, li.selected, mark.match.
    Changing a class name here means changing it there. */
 
-:root {
-  color-scheme: dark;   /* native controls (scrollbar, ×, file button) go dark */
+/* Light — HeroUI's own palette. Its published oklch values for the surfaces,
+   ink and accent; the overlays, glows and semantic fills are derived from
+   them because HeroUI has no direct equivalent.
 
-  /* Surfaces. DuckDuckGo dark: tinted near-black page, one step up for the
-     object (box / panel / card), never pure #000. */
-  --bg: #1c1c1e;
-  --surface: #2b2b2d;
-  --surface-sunk: #242426;
-  --border: #3a3a3d;
+   Contrast measured 2026-07-23 by converting each oklch() pair to linear
+   sRGB (Björn Ottosson's OKLab matrices) and computing WCAG relative
+   luminance / contrast ratio with a throwaway script — not guessed, not
+   carried over from the dark build's comment, which only ever covered dark.
+     --muted / --bg            4.80:1  (needs 4.5:1) — --muted darkened again,
+                                                        L 54.5% to 53.3%, after
+                                                        the earlier pass missed
+                                                        --surface-sunk (below)
+     --muted / --surface       5.23:1  (needs 4.5:1)
+     --muted / --surface-sunk  4.55:1  (needs 4.5:1) — .dropzone__hint and the
+                                                        disabled search input's
+                                                        placeholder both land here;
+                                                        measured 4.32:1 at L 54.5%
+     --ink-soft / --surface   10.45:1  (needs 4.5:1)
+     --danger / --surface      6.08:1  (needs 4.5:1)
+     --warn-ink / --warn-bg    6.03:1  (needs 4.5:1)
+     --ok-ink / --ok-bg        6.42:1  (needs 4.5:1)
+     --accent-ink / --accent-soft 6.42:1  (needs 4.5:1)
+     --accent / --surface      3.68:1  (needs 3:1, non-text)
+     --border-strong / --surface 3.65:1  (needs 3:1, non-text) — raised from
+                                                        L 84% (1.64:1) so the
+                                                        box, panel and cards
+                                                        read as objects, not a
+                                                        hairline on blank page
+     --border-strong / --bg    3.34:1  (needs 3:1, non-text)
+     --action-disabled(ink) / --action-disabled(bg) 12.34:1 (needs 4.5:1) —
+                                                        see the shared block for
+                                                        why this pair now has its
+                                                        own tokens per theme */
+:root {
+  color-scheme: light;
+
+  --bg: oklch(97.02% 0 0);
+  --surface: #fff;
+  --surface-sunk: oklch(95.24% .0013 286.37);
+  --border: oklch(90% .004 286.32);
+  --border-strong: oklch(62% .005 286.32);
+
+  --ink: oklch(21.03% .0059 285.89);
+  --ink-soft: oklch(37% .008 285.9);
+  --muted: oklch(53.3% .0138 285.94);
+
+  --accent: oklch(62.04% .195 253.83);
+  --accent-hover: oklch(56% .195 253.83);
+  --accent-active: oklch(50% .19 253.83);
+  --accent-disabled: oklch(85% .05 253.83);
+  --accent-soft: oklch(95% .03 253.83);
+  --accent-ink: oklch(45% .17 253.83);
+  --accent-ring: oklch(62.04% .195 253.83 / .35);
+
+  /* Dimmed-gold disabled state, per theme (see the shared block below for
+     why it moved out of there). Light pairs a pale muted gold with the
+     regular dark ink; 12.34:1, comfortably over 4.5:1. */
+  --action-disabled: oklch(88% .035 85);
+  --action-disabled-ink: oklch(21.03% .0059 285.89);
+
+  --skeleton: oklch(93% .002 286.3);
+  --skeleton-sheen: oklch(96.5% .002 286.3);
+
+  --danger: oklch(52% .19 24.63);
+  --danger-line: oklch(58% .2 24.63);
+  --warn-ink: oklch(48% .12 72.33);
+  --warn-bg: oklch(96.5% .03 85);
+  --warn-line: oklch(88% .06 80);
+  --ok-ink: oklch(45% .12 150.81);
+  --ok-bg: oklch(96.5% .03 155);
+  --ok-line: oklch(87% .07 152);
+
+  /* HeroUI's own surface-shadow here is a hairline, not a pool — measured
+     1.09:1 (surface/bg) and 1.64:1 (old border-strong/surface), so nothing
+     told the box, panel or cards apart from the empty page they sit on.
+     Dark keeps a shadow pool for the same "floating object" reason (see the
+     comment on :root.dark below); light needed one too, just softer, since a
+     dark-strength pool would look like a stain on a near-white page. */
+  --lift: 0 2px 4px 0 #0000000f, 0 1px 2px 0 #00000014, 0 22px 44px -22px #00000038;
+
+  --overlay: oklch(0% 0 0 / .06);
+  --cursor-glow: oklch(0% 0 0 / .04);
+  --cursor-glow-accent: oklch(62.04% .195 253.83 / .10);
+  --danger-ring: oklch(52% .19 24.63 / .22);
+  --danger-soft: oklch(52% .19 24.63 / .08);
+  --danger-soft-line: oklch(52% .19 24.63 / .28);
+  --backdrop: oklch(0% 0 0 / .4);
+}
+
+/* Values that do not vary by theme. Kept in one block so the two palettes
+   above and below cannot drift apart on spacing or motion.
+
+   The gold action is here on purpose. HeroUI ships a single accent; this app
+   runs two — blue for wherever the keyboard is (focus, selection, matched
+   letters) and gold for the one primary action. Collapsing them would paint
+   the "Open folder" pill the same colour as the focus ring.
+
+   --action-disabled is deliberately NOT here, even though it looks like part
+   of the same gold family: it is a dimmed variant, and "dimmed" means
+   something different against a near-black surface than against a
+   near-white one. Kept mode-independent it measured 1.28:1 against light
+   --muted — invisible. It lives in each palette above/below instead, next
+   to --action-disabled-ink, its themed pairing.
+
+   Placed after the light block (not before, as first drafted) because
+   test_light_and_dark_define_the_same_tokens compares whichever block is
+   textually the *first* plain :root rule in the file against the dark
+   override below — that first block has to be the light palette itself, or
+   the comparison picks up these theme-independent names too and never
+   matches the dark block's token set. */
+:root {
+  --action: #f2c66b;
+  --action-hover: #f6d488;
+  --action-active: #e3b757;
+  --on-accent: #1c1c1e;   /* dark ink sits on the gold in both themes */
+
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .7rem;
+  --sp-4: 1rem; --sp-6: 1.5rem; --sp-8: 2rem;
+  --radius: 12px;
+  --radius-sm: 7px;
+
+  --dur: 180ms;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, Menlo, monospace;
+  --display: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --icon-open: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M14 5h5v5'/><path d='M19 5l-8 8'/><path d='M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/></svg>");
+}
+
+/* Dark — HeroUI's dark palette for surfaces, ink and border. Everything else
+   is the original hand-tuned dark build, which was designed against this page
+   and measured against it.
+
+   One deliberate divergence, in both directions: HeroUI sets --surface-shadow
+   to none in dark and separates surfaces by lightness alone. This layout does
+   not work that way — the search box is a single object floating at the
+   optical centre of an empty page, and --lift is what makes it float. So the
+   dark shadow pool stays here, at HeroUI's own strength. Light diverges too,
+   the mirror way: HeroUI's light --surface-shadow is a hairline (measured
+   1.09:1 surface/bg, nothing to float on), so light got its own shadow pool
+   added, just softer than dark's — see the comment on --lift above. */
+:root.dark {
+  color-scheme: dark;
+
+  --bg: oklch(12% .005 285.823);
+  --surface: oklch(21.03% .0059 285.89);
+  --surface-sunk: oklch(25.7% .0037 286.14);
+  --border: oklch(28% .006 286.033);
   --border-strong: #48484c;
 
-  /* Ink. --muted clears 4.5:1 on both --surface and --bg. */
-  --ink: #f4f4f5;
+  --ink: oklch(99.11% 0 0);
   --ink-soft: #c8c8cc;
-  --muted: #9d9da4;
-  --on-accent: #1c1c1e;   /* dark text sits on the gold action */
+  --muted: oklch(70.5% .015 286.067);
 
-  /* Brand. Blue = selection / focus / match (where the keyboard is). Gold = the
-     one primary action, echoing the ref's single gold CTA. */
-  --accent: #5b8cff;
+  --accent: oklch(62.04% .195 253.83);
   --accent-hover: #7099ff;
   --accent-active: #4a7dff;
   --accent-disabled: #3a4a75;
   --accent-soft: #24324e;
   --accent-ink: #accbff;
   --accent-ring: rgba(91, 140, 255, .4);
-  --action: #f2c66b;
-  --action-hover: #f6d488;
-  --action-active: #e3b757;
-  --action-disabled: #6b5e3d;
 
-  /* Loading */
+  /* Dimmed gold, unchanged from before this pair got its own tokens. The
+     pairing with --muted measured 1.28:1 in *light*; here in dark it was
+     2.42:1 — also short of 4.5:1, so --action-disabled-ink gets its own
+     value rather than reusing --muted. 4.88:1 against this background. */
+  --action-disabled: #6b5e3d;
+  --action-disabled-ink: oklch(91% .02 85);
+
   --skeleton: #303033;
   --skeleton-sheen: #3c3c40;
 
-  /* Semantic — tuned for the dark surface. */
-  --danger: #ff7a7a;
+  --danger: oklch(65.32% .2328 25.74);
   --danger-line: #ff5a5a;
-  --warn-ink: #f2c66b;
+  --warn-ink: oklch(82.03% .1388 76.34);
   --warn-bg: #352b18;
   --warn-line: #574726;
   --ok-ink: #6ee7b7;
   --ok-bg: #17281f;
   --ok-line: #265c44;
 
-  /* Scale */
-  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .7rem;
-  --sp-4: 1rem; --sp-6: 1.5rem; --sp-8: 2rem;
-  --radius: 12px;
-  --radius-sm: 7px;
-
-  /* Elevation on dark: deeper black, higher opacity so the lifted object still
-     separates from the near-black page. */
   --lift: 0 1px 2px rgba(0, 0, 0, .4), 0 18px 40px -16px rgba(0, 0, 0, .7);
 
-  /* Motion */
-  --dur: 180ms;
-  --ease-out: cubic-bezier(.22, 1, .36, 1);
-
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, Menlo, monospace;
-
-  /* Display face for the wordmark + headings: rounded geometric bold, matching
-     the ref's DuckDuckGo Sans. Poppins loads from Google Fonts; system-ui if not. */
-  --display: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
-
-  /* open-in-new glyph, painted with the button's ink via mask. Echoes the
-     ref CTA carrying an icon inside the label ("Download Browser ↓"). */
-  --icon-open: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M14 5h5v5'/><path d='M19 5l-8 8'/><path d='M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/></svg>");
+  --overlay: rgba(255, 255, 255, .07);
+  --cursor-glow: rgba(255, 255, 255, .06);
+  --cursor-glow-accent: rgba(91, 140, 255, .14);
+  --danger-ring: rgba(220, 38, 38, .18);
+  --danger-soft: rgba(255, 90, 90, .12);
+  --danger-soft-line: rgba(255, 90, 90, .38);
+  --backdrop: rgba(0, 0, 0, .55);
 }
 
 * { box-sizing: border-box; }
@@ -145,8 +268,21 @@ body {
   padding: .25rem .55rem; border-radius: var(--radius-sm);
   transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
 }
-.topbar nav a:hover { background: rgba(255, 255, 255, .07); color: var(--ink); }
+.topbar nav a:hover { background: var(--overlay); color: var(--ink); }
 .topbar nav a[aria-current] { color: var(--ink); font-weight: 600; }
+
+/* The toggle is corner furniture, not an action. It borrows the nav links'
+   size and colour rather than the primary button's, so it sits with them
+   instead of competing with the search box. */
+.theme-toggle {
+  width: auto; min-height: 0; margin: 0;
+  font: inherit; font-size: .8125rem; font-weight: 400;
+  padding: .25rem .55rem; border: 0; border-radius: var(--radius-sm);
+  background: none; color: var(--muted); cursor: pointer;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+.theme-toggle:hover { background: var(--overlay); color: var(--ink); }
+.theme-toggle:active { background: var(--overlay); transform: none; }
 
 /* The stage. Vertical centring with no results is what puts the box at the
    optical middle; as the panel grows, the object lifts on its own. */
@@ -235,7 +371,7 @@ main:has(#results:not(:empty)) input[type=search] { border-bottom-color: var(--b
   border-radius: inherit; pointer-events: none; z-index: 1; opacity: 0;
   transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(255, 255, 255, .06), transparent 70%);
+    var(--cursor-glow), transparent 70%);
 }
 .search-wrap.glow::after { opacity: 1; }
 
@@ -244,7 +380,7 @@ main:has(#results:not(:empty)) input[type=search] { border-bottom-color: var(--b
 .search-wrap.shake { animation: shake .35s var(--ease-out); }
 .search-wrap.shake input {
   border-color: var(--danger-line);
-  box-shadow: var(--lift), 0 0 0 3px rgba(220, 38, 38, .18);
+  box-shadow: var(--lift), 0 0 0 3px var(--danger-ring);
 }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -309,7 +445,7 @@ kbd {
   border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0;
   transition: opacity var(--dur) var(--ease-out);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(91, 140, 255, .14), transparent 70%);
+    var(--cursor-glow-accent), transparent 70%);
 }
 #results li.glow::before { opacity: 1; }
 
@@ -400,16 +536,20 @@ label + input { margin-bottom: var(--sp-4); }
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
+/* HeroUI's button geometry: a stadium, and a press that scales rather than
+   nudges. Full width is this app's own — the login and admin forms are single
+   -column, so the action spans the card. */
 button {
   width: 100%; min-height: 40px; margin-top: var(--sp-2);
   padding: .6rem 1rem; font: inherit; font-size: .9375rem; font-weight: 700;
-  border: 0; border-radius: 10px;
+  border: 0; border-radius: 24px;
   background: var(--action); color: var(--on-accent); cursor: pointer;
-  transition: background var(--dur) var(--ease-out);
+  transition: background var(--dur) var(--ease-out),
+              transform 250ms var(--ease-out);
 }
 button:hover { background: var(--action-hover); }
-button:active { background: var(--action-active); transform: translateY(1px); }
-button:disabled { background: var(--action-disabled); color: var(--muted); cursor: not-allowed; }
+button:active { background: var(--action-active); transform: scale(.97); }
+button:disabled { background: var(--action-disabled); color: var(--action-disabled-ink); cursor: not-allowed; }
 
 /* Password reveal. The field owns the spacing so the input can sit flush
    against the button without either one moving when the icon swaps. */
@@ -440,7 +580,7 @@ button.reveal[aria-pressed="true"] { color: var(--accent); }
 .error {
   margin: 0 0 var(--sp-4); padding: .6rem .8rem;
   border-radius: var(--radius-sm);
-  background: rgba(255, 90, 90, .12); border: 1px solid rgba(255, 90, 90, .38); color: var(--danger);
+  background: var(--danger-soft); border: 1px solid var(--danger-soft-line); color: var(--danger);
   font-size: .875rem;
 }
 .ok {
@@ -472,7 +612,7 @@ details ul { margin: .4rem 0 0; padding-left: 1.1rem; max-height: 38vh; overflow
 .review-line strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 
 details.danger-block {
-  background: rgba(255, 90, 90, .1); border-color: rgba(255, 90, 90, .38);
+  background: var(--danger-soft); border-color: var(--danger-soft-line);
   color: var(--danger);
 }
 details.danger-block summary { color: var(--danger); }
@@ -488,8 +628,8 @@ button.secondary {
   background: none; color: var(--ink-soft);
   border: 1px solid var(--border-strong);
 }
-button.secondary:hover { background: rgba(255, 255, 255, .06); color: var(--ink); }
-button.secondary:active { background: rgba(255, 255, 255, .06); transform: translateY(1px); }
+button.secondary:hover { background: var(--overlay); color: var(--ink); }
+button.secondary:active { background: var(--overlay); transform: scale(.97); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep the shake's border/ring cue; drop the movement. The class is removed
@@ -497,6 +637,18 @@ button.secondary:active { background: rgba(255, 255, 255, .06); transform: trans
   .search-wrap.shake { animation: none; }
   #results li.skeleton { animation: none; background: var(--skeleton); }
   *, *::before, *::after { transition-duration: 1ms !important; }
+  /* button.secondary:active outside this block is (0,2,1) — same specificity
+     as button:active alone would be too weak to beat it. Matching the
+     selector here brings the guard to equal specificity, and because this
+     rule comes later in the cascade it wins the tie, actually disabling the
+     scale for both the primary and secondary buttons.
+
+     a.open:active is named here too — it is not a button element at all, so
+     the bare `button:active` selector above never matched it, and its own
+     translateY(1px) press kept moving for reduced-motion users. */
+  button:active,
+  button.secondary:active,
+  a.open:active { transform: none; }
 }
 
 /* -------------------------------------------------------------- toasts */
@@ -523,10 +675,11 @@ button.secondary:active { background: rgba(255, 255, 255, .06); transform: trans
 /* Override the global full-width primary button for this inline dismiss. */
 .toast__close {
   width: auto; min-height: 0; margin: 0; padding: 0 .2rem;
-  background: none; border: 0; color: inherit;
+  background: none; border: 0; border-radius: var(--radius-sm); color: inherit;
   font-size: 1.15rem; line-height: 1; cursor: pointer; opacity: .7;
 }
 .toast__close:hover { background: none; opacity: 1; }
+.toast__close:active { background: none; opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transform: none; transition: opacity var(--dur) var(--ease-out); }
   .toast--in { transform: none; }
@@ -540,7 +693,7 @@ dialog.modal {
   max-width: 32rem; width: calc(100vw - 2 * var(--sp-4));
   color: var(--ink); /* dialog UA default colour is canvastext */
 }
-dialog.modal::backdrop { background: rgba(0, 0, 0, .55); }
+dialog.modal::backdrop { background: var(--backdrop); }
 
 /* ------------------------------------------------------------ dropzone */
 .dropzone {

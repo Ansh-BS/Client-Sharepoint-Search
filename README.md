@@ -35,3 +35,9 @@ skipped; rows without a hyperlink show a "No link on file" badge.
   old data untouched.
 - Fuse.js v7 is vendored at `static/fuse.min.js`; no CDN at runtime.
 - Search: min 2 characters, top 8 results, threshold 0.4.
+- Light and dark themes. First visit follows the OS; the toggle in the top
+  right overrides it and the choice is remembered. `static/theme.js` runs
+  before first paint so the page never flashes the wrong theme.
+- Colours come from HeroUI's palette (`:root` light, `:root.dark` dark, same
+  token names in both). Rules read `var(--token)` only — a literal colour in a
+  rule cannot be re-themed, and `tests/test_theme.py` fails if one appears.
