@@ -493,15 +493,19 @@ label + input { margin-bottom: var(--sp-4); }
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
+/* HeroUI's button geometry: a stadium, and a press that scales rather than
+   nudges. Full width is this app's own — the login and admin forms are single
+   -column, so the action spans the card. */
 button {
   width: 100%; min-height: 40px; margin-top: var(--sp-2);
   padding: .6rem 1rem; font: inherit; font-size: .9375rem; font-weight: 700;
-  border: 0; border-radius: 10px;
+  border: 0; border-radius: 24px;
   background: var(--action); color: var(--on-accent); cursor: pointer;
-  transition: background var(--dur) var(--ease-out);
+  transition: background var(--dur) var(--ease-out),
+              transform 250ms var(--ease-out);
 }
 button:hover { background: var(--action-hover); }
-button:active { background: var(--action-active); transform: translateY(1px); }
+button:active { background: var(--action-active); transform: scale(.97); }
 button:disabled { background: var(--action-disabled); color: var(--muted); cursor: not-allowed; }
 
 /* Password reveal. The field owns the spacing so the input can sit flush
@@ -582,7 +586,7 @@ button.secondary {
   border: 1px solid var(--border-strong);
 }
 button.secondary:hover { background: var(--overlay); color: var(--ink); }
-button.secondary:active { background: var(--overlay); transform: translateY(1px); }
+button.secondary:active { background: var(--overlay); transform: scale(.97); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep the shake's border/ring cue; drop the movement. The class is removed
@@ -590,6 +594,7 @@ button.secondary:active { background: var(--overlay); transform: translateY(1px)
   .search-wrap.shake { animation: none; }
   #results li.skeleton { animation: none; background: var(--skeleton); }
   *, *::before, *::after { transition-duration: 1ms !important; }
+  button:active { transform: none; }
 }
 
 /* -------------------------------------------------------------- toasts */

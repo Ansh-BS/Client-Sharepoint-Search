@@ -104,3 +104,23 @@ def test_no_inline_script_anywhere():
     for name in ("index.html", "login.html", "admin.html"):
         html = (Path(__file__).resolve().parent.parent / "templates" / name).read_text(encoding="utf-8")
         assert "<script>" not in html, f"{name} has an inline script"
+
+
+def test_primary_button_is_a_heroui_pill():
+    text = CSS.read_text(encoding="utf-8")
+    block = text[text.index("\nbutton {"):text.index("button:hover")]
+    assert "border-radius: 24px" in block, "button is not a pill"
+    assert "border-radius: 10px" not in block, "old rounded-rectangle radius left behind"
+
+
+def test_button_press_is_a_scale_not_a_nudge():
+    text = CSS.read_text(encoding="utf-8")
+    assert "transform: scale(.97)" in text
+
+
+def test_reduced_motion_disables_the_button_transform():
+    """The rest of this stylesheet already honours prefers-reduced-motion;
+    a new transform must not be the one thing that ignores it."""
+    text = CSS.read_text(encoding="utf-8")
+    block = text[text.index("prefers-reduced-motion"):]
+    assert "button:active" in block and "transform: none" in block
