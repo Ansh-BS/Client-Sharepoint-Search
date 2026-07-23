@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin — Client SharePoint Search</title>
+<script src="{{ url_for('static', filename='theme.js', v=asset_v) }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_v) }}">
 </head>
 <body>
@@ -12,6 +13,8 @@
     <a href="{{ url_for('index') }}">Search</a>
     <a href="{{ url_for('admin') }}" aria-current="page">Admin</a>
     <a href="{{ url_for('logout') }}">Log out</a>
+    <button type="button" id="theme-toggle" class="theme-toggle"
+            aria-pressed="false" aria-label="Switch between light and dark">Dark</button>
   </nav>
 </header>
 

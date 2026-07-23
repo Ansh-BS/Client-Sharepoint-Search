@@ -228,6 +228,19 @@ body {
 .topbar nav a:hover { background: var(--overlay); color: var(--ink); }
 .topbar nav a[aria-current] { color: var(--ink); font-weight: 600; }
 
+/* The toggle is corner furniture, not an action. It borrows the nav links'
+   size and colour rather than the primary button's, so it sits with them
+   instead of competing with the search box. */
+.theme-toggle {
+  width: auto; min-height: 0; margin: 0;
+  font: inherit; font-size: .8125rem; font-weight: 400;
+  padding: .25rem .55rem; border: 0; border-radius: var(--radius-sm);
+  background: none; color: var(--muted); cursor: pointer;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+.theme-toggle:hover { background: var(--overlay); color: var(--ink); }
+.theme-toggle:active { background: var(--overlay); transform: none; }
+
 /* The stage. Vertical centring with no results is what puts the box at the
    optical middle; as the panel grows, the object lifts on its own. */
 main {

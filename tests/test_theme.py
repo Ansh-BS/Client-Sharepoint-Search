@@ -61,3 +61,46 @@ def test_theme_independent_values_are_not_duplicated():
                   "--display", "--action", "--action-hover"):
         assert len(re.findall(rf"^\s*{token}:", text, re.M)) == 1, \
             f"{token} is defined more than once"
+
+
+def test_every_page_loads_theme_js_before_the_stylesheet(logged_in):
+    """theme.js must run before first paint, or the page paints in the wrong
+    theme and visibly flips. Before the stylesheet link is the safe spot."""
+    for path in ("/", "/admin"):
+        html = logged_in.get(path).get_data(as_text=True)
+        assert "theme.js" in html, f"{path} does not load theme.js"
+        assert html.index("theme.js") < html.index("style.css"), \
+            f"{path} loads theme.js after the stylesheet"
+
+
+def test_login_page_loads_theme_js(client):
+    html = client.get("/login").get_data(as_text=True)
+    assert "theme.js" in html
+    assert html.index("theme.js") < html.index("style.css")
+
+
+def test_theme_js_is_not_deferred_or_async():
+    """defer/async would let the page paint first — the exact flash this
+    script exists to prevent."""
+    for name in ("index.html", "login.html", "admin.html"):
+        html = (Path(__file__).resolve().parent.parent / "templates" / name).read_text(encoding="utf-8")
+        line = next(ln for ln in html.splitlines() if "theme.js" in ln)
+        assert "defer" not in line and "async" not in line, f"{name}: {line}"
+
+
+def test_toggle_is_on_the_signed_in_pages(logged_in):
+    for path in ("/", "/admin"):
+        assert 'id="theme-toggle"' in logged_in.get(path).get_data(as_text=True)
+
+
+def test_toggle_is_not_on_the_login_page(client):
+    """The login page is a deliberately bare centred card with no topbar.
+    It still honours the saved choice, because theme.js is in its head."""
+    assert 'id="theme-toggle"' not in client.get("/login").get_data(as_text=True)
+
+
+def test_no_inline_script_anywhere():
+    """CSP is script-src 'self'. An inline script would need a nonce or hash."""
+    for name in ("index.html", "login.html", "admin.html"):
+        html = (Path(__file__).resolve().parent.parent / "templates" / name).read_text(encoding="utf-8")
+        assert "<script>" not in html, f"{name} has an inline script"
