@@ -1,5 +1,11 @@
 # React + HeroUI v3 SPA Rebuild Implementation Plan
 
+> **SUPERSEDED 2026-07-23.** The React SPA was abandoned and the vanilla
+> Flask/Jinja frontend restored. See
+> `docs/superpowers/specs/2026-07-23-vanilla-heroui-theme-design.md`.
+> This document is kept for history; do not implement it.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Rebuild the sharepoint-search frontend (search, login, admin) as a single-page React app using HeroUI v3, with Flask reduced to a JSON API + static server.

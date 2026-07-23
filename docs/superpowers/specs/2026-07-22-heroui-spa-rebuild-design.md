@@ -1,5 +1,11 @@
 # Design: sharepoint-search → React + HeroUI v3 SPA
 
+> **SUPERSEDED 2026-07-23.** The React SPA was abandoned and the vanilla
+> Flask/Jinja frontend restored. See
+> `docs/superpowers/specs/2026-07-23-vanilla-heroui-theme-design.md`.
+> This document is kept for history; do not implement it.
+
+
 **Date:** 2026-07-22
 **Status:** Approved (brainstorming). Next: writing-plans.
 
