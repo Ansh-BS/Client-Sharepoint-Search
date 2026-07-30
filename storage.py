@@ -25,6 +25,21 @@ def _resolve(path):
     return os.fspath(path) if path else os.environ.get("CLIENTS_JSON", DEFAULT_PATH)
 
 
+def _atomic_write_json(obj, dest):
+    """Atomically write a JSON object to dest using temp file + os.replace."""
+    directory = os.path.dirname(dest) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, dest)
+    except Exception:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
 def load_clients(path=None):
     path = _resolve(path)
     if not os.path.exists(path):
@@ -34,18 +49,7 @@ def load_clients(path=None):
 
 
 def save_clients(clients, path=None):
-    path = _resolve(path)
-    directory = os.path.dirname(path) or "."
-    os.makedirs(directory, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(clients, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, path)
-    except Exception:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-        raise
+    _atomic_write_json(clients, _resolve(path))
 
 
 # --- pending uploads (the preview/confirm stash) ---------------------------
@@ -66,18 +70,9 @@ def save_pending(clients, token, path=None):
     dest = _pending_path(token, path)
     if dest is None:
         raise ValueError("invalid pending token")
-    directory = _pending_dir(path)
-    os.makedirs(directory, exist_ok=True)
+    os.makedirs(_pending_dir(path), exist_ok=True)
     _sweep_pending(path)
-    fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(clients, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, dest)
-    except Exception:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-        raise
+    _atomic_write_json(clients, dest)
 
 
 def load_pending(token, path=None):
@@ -112,3 +107,25 @@ def _sweep_pending(path=None):
                 pass
     except FileNotFoundError:
         pass
+
+
+# --- link health reports -------------------------------------------------------
+
+def report_path(path=None):
+    """Path to link_health.json beside the resolved clients path."""
+    base = _resolve(path)
+    return os.path.join(os.path.dirname(base) or ".", "link_health.json")
+
+
+def save_report(report, path=None):
+    """Atomically write the link health report JSON."""
+    _atomic_write_json(report, report_path(path))
+
+
+def load_report(path=None):
+    """Load the link health report, or None if it does not exist."""
+    src = report_path(path)
+    if not os.path.exists(src):
+        return None
+    with open(src, encoding="utf-8") as f:
+        return json.load(f)

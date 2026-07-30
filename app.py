@@ -2,6 +2,7 @@
 import hmac
 import os
 import secrets
+import threading
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -10,8 +11,10 @@ from flask import (Flask, jsonify, redirect, render_template, request,
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+from link_health import check_all
 from storage import (discard_pending, load_clients, load_pending,
-                     save_clients, save_pending)
+                     load_report, report_path, save_clients, save_pending,
+                     save_report)
 from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
@@ -40,7 +43,13 @@ limiter = Limiter(get_remote_address, app=app, default_limits=[],
 # leaves staff staring at the old ones. Bump this on every deploy that touches
 # style.css, search.js, theme.js or any of the other static scripts; the
 # changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "11"
+ASSET_VERSION = "12"
+
+# Enables button-related copy/actions for the link-health check on /admin
+# (the button itself lands in a later task). Default off: staff who haven't
+# opted in should not see instructions for a control that doesn't exist yet.
+LINK_CHECK_ENABLED = os.getenv("LINK_CHECK_ENABLED", "").strip().lower() in (
+    "1", "true", "yes")
 
 
 @app.context_processor
@@ -135,6 +144,7 @@ def admin():
     result = None
     error = None
     preview = None
+    checking = False
     if request.method == "POST":
         action = request.form.get("action", "preview")
 
@@ -163,6 +173,20 @@ def admin():
                     session.pop("pending_upload", None)
                     missing = [c["name"] for c in clients if not c["link"]]
                     result = {"count": len(clients), "missing": missing}
+
+        elif action == "check_links":
+            if not LINK_CHECK_ENABLED:
+                error = "Link checking is not enabled on this server."
+            else:
+                dest = report_path()
+                snapshot = load_clients()
+
+                def _run(clients):
+                    save_report(check_all(clients), path=dest)
+
+                threading.Thread(target=_run, args=(snapshot,),
+                                 daemon=True).start()
+                checking = True
 
         else:  # preview: parse and stash, but change nothing yet
             if not hmac.compare_digest(request.form.get("admin_password", ""),
@@ -196,7 +220,9 @@ def admin():
                                         if not c["link"]],
                         }
     return render_template("admin.html", result=result, error=error,
-                           preview=preview)
+                           preview=preview, health=load_report(),
+                           link_check_enabled=LINK_CHECK_ENABLED,
+                           checking=checking)
 
 
 if __name__ == "__main__":

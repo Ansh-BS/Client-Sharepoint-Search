@@ -129,6 +129,46 @@
       folder. Header row is ignored.</p>
   {% endif %}
   </div>
+
+  <section class="card link-health">
+    <h2>Link health</h2>
+    {% if checking %}
+      <p class="ok" role="status">Check running… refresh in a minute to see results.</p>
+    {% endif %}
+    {% if link_check_enabled %}
+      <form method="post" class="inline-form">
+        <input type="hidden" name="action" value="check_links">
+        <button type="submit" class="secondary">Check all links now</button>
+      </form>
+    {% endif %}
+    {% if not health %}
+      <p class="sub">No link check has been run yet. Run
+        <code>python check_links.py</code>{% if link_check_enabled %} or use the
+        button above{% endif %} to check every client's SharePoint link.</p>
+    {% else %}
+      <p class="sub">Last checked {{ health.checked_at }}.
+        {{ health.counts.ok }} ok, {{ health.counts.dead }} dead,
+        {{ health.counts.suspect }} suspect, {{ health.counts.nolink }} no-link,
+        {{ health.counts.error }} error.</p>
+      {% if not health.flagged %}
+        <p class="ok" role="status">All {{ health.total }} links OK ✓</p>
+      {% else %}
+        <table class="health-table">
+          <thead><tr><th>Client ID</th><th>Name</th><th>Status</th><th>Code</th></tr></thead>
+          <tbody>
+          {% for f in health.flagged %}
+            <tr>
+              <td>{{ f.id }}</td>
+              <td>{{ f.name }}</td>
+              <td><span class="badge badge-{{ f.category }}">{{ f.category }}</span></td>
+              <td>{{ f.status if f.status is not none else '—' }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    {% endif %}
+  </section>
 {% endif %}
 </main>
 <script src="{{ url_for('static', filename='password.js', v=asset_v) }}"></script>

@@ -711,3 +711,23 @@ dialog.modal::backdrop { background: var(--backdrop); }
 .file-info { font-size: .8125rem; margin: 0 0 var(--sp-4); min-height: 1.2em; }
 .file-info--ok { color: var(--ok-ink); }
 .file-info--bad { color: var(--danger); }
+
+/* --------------------------------------------------------- link health */
+.link-health { margin-top: 1rem; }
+.health-table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+.health-table th, .health-table td {
+  text-align: left; padding: .4rem .5rem;
+  border-bottom: 1px solid var(--border);
+}
+/* The category word itself ("dead"/"suspect") carries the meaning; colour
+   only reinforces it — never the sole signal. Reuses the existing danger/
+   warn/muted tokens rather than inventing new -bg/-fg pairs, so this stays
+   correctly themed in both light and dark without touching the :root blocks. */
+.badge {
+  display: inline-block; padding: .1rem .5rem; border-radius: 999px;
+  font-size: .85em; font-weight: 600;
+}
+.badge-dead    { background: var(--danger-soft); color: var(--danger); }
+.badge-suspect { background: var(--warn-bg);      color: var(--warn-ink); }
+.badge-nolink  { background: var(--surface-sunk); color: var(--muted); }
+.badge-error   { background: var(--surface-sunk); color: var(--muted); }
