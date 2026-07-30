@@ -86,6 +86,19 @@ def staff_required(view):
     return wrapped
 
 
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("staff"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "unauthenticated"}), 401
+            return redirect(url_for("login"))
+        if not session.get("admin"):
+            return redirect(url_for("admin_unlock"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per 15 minutes", methods=["POST"])
 def login():
@@ -137,9 +150,23 @@ def _diff_clients(current, new):
     return dropped, added
 
 
-@app.route("/admin", methods=["GET", "POST"])
+@app.route("/admin/unlock", methods=["GET", "POST"])
 @limiter.limit("10 per 15 minutes", methods=["POST"])
 @staff_required
+def admin_unlock():
+    error = None
+    if request.method == "POST":
+        if hmac.compare_digest(request.form.get("password", ""),
+                               os.getenv("ADMIN_PASSWORD")):
+            session["admin"] = True
+            return redirect(url_for("admin"))
+        error = "Wrong admin password."
+    return render_template("admin_unlock.html", error=error)
+
+
+@app.route("/admin", methods=["GET", "POST"])
+@limiter.limit("10 per 15 minutes", methods=["POST"])
+@admin_required
 def admin():
     result = None
     error = None

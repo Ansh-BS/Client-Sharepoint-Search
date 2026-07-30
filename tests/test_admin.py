@@ -37,32 +37,74 @@ def test_admin_requires_staff_login(client):
     assert "/login" in resp.headers["Location"]
 
 
-def test_wrong_admin_password_rejected(logged_in, data_path, make_xlsx, tmp_path):
+# --- admin-page unlock gate ------------------------------------------------
+
+def test_admin_requires_unlock(logged_in, data_path):
+    resp = logged_in.get("/admin")
+    assert resp.status_code == 302
+    assert "/admin/unlock" in resp.headers["Location"]
+
+
+def test_unlock_page_shown_to_staff(logged_in):
+    resp = logged_in.get("/admin/unlock")
+    assert resp.status_code == 200
+    assert b"Admin password" in resp.data
+
+
+def test_unlock_correct_password_grants_access(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock", data={"password": "adminpw"})
+    assert resp.status_code == 302
+    assert "/admin" in resp.headers["Location"]
+    assert logged_in.get("/admin").status_code == 200
+
+
+def test_unlock_wrong_password_rejected(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock", data={"password": "nope"})
+    assert b"Wrong admin password" in resp.data
+    assert logged_in.get("/admin").status_code == 302  # still locked
+
+
+def test_unlock_requires_staff_login(client):
+    resp = client.get("/admin/unlock")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
+
+
+def test_logout_clears_admin(admin, data_path):
+    assert admin.get("/admin").status_code == 200
+    admin.get("/logout")
+    resp = admin.get("/admin")
+    assert resp.status_code == 302  # session cleared -> gate redirects
+
+
+# --- upload flow (now behind the unlock gate) ------------------------------
+
+def test_wrong_admin_password_rejected(admin, data_path, make_xlsx, tmp_path):
     save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
     p = make_xlsx(tmp_path / "new.xlsx", [("N1", "New Client", "https://x")])
-    resp = preview(logged_in, p, password="wrong")
+    resp = preview(admin, p, password="wrong")
     assert b"Wrong admin password" in resp.data
     assert _token(resp) is None
     assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
 
 
-def test_preview_does_not_modify_data(logged_in, data_path, make_xlsx, tmp_path):
+def test_preview_does_not_modify_data(admin, data_path, make_xlsx, tmp_path):
     save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
     p = make_xlsx(tmp_path / "new.xlsx", [("N1", "New Client", "https://x")])
-    resp = preview(logged_in, p)
+    resp = preview(admin, p)
     assert b"Review before replacing" in resp.data
     assert _token(resp) is not None
     # Nothing committed until confirm.
     assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
 
 
-def test_confirm_replaces_data_and_reports(logged_in, data_path, make_xlsx,
+def test_confirm_replaces_data_and_reports(admin, data_path, make_xlsx,
                                            tmp_path):
     p = make_xlsx(tmp_path / "new.xlsx", [
         ("N1", "New Client", "https://x"),
         ("N2", "Linkless Client", None),
     ])
-    resp = upload(logged_in, p)
+    resp = upload(admin, p)
     assert b"2 clients imported" in resp.data
     assert b"1 client with no SharePoint link" in resp.data
     assert b"Linkless Client" in resp.data
@@ -70,67 +112,69 @@ def test_confirm_replaces_data_and_reports(logged_in, data_path, make_xlsx,
         ["New Client", "Linkless Client"]
 
 
-def test_preview_warns_about_dropped_clients(logged_in, data_path, make_xlsx,
+def test_preview_warns_about_dropped_clients(admin, data_path, make_xlsx,
                                              tmp_path):
     save_clients([
         {"id": "OLD1", "name": "Vanishing Client", "link": "https://a"},
         {"id": "KEEP", "name": "Kept Client", "link": "https://b"},
     ], data_path)
     p = make_xlsx(tmp_path / "new.xlsx", [("KEEP", "Kept Client", "https://b")])
-    resp = preview(logged_in, p)
+    resp = preview(admin, p)
     assert b"will stop being findable" in resp.data
     assert b"Vanishing Client" in resp.data
 
 
-def test_cancel_discards_preview(logged_in, data_path, make_xlsx, tmp_path):
+def test_cancel_discards_preview(admin, data_path, make_xlsx, tmp_path):
     save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
     p = make_xlsx(tmp_path / "new.xlsx", [("N1", "New Client", "https://x")])
-    resp = preview(logged_in, p)
+    resp = preview(admin, p)
     token = _token(resp)
-    logged_in.post("/admin", data={"action": "cancel"})
+    admin.post("/admin", data={"action": "cancel"})
     # The stashed preview is gone: confirming the old token now fails.
-    resp2 = confirm(logged_in, token)
+    resp2 = confirm(admin, token)
     assert b"expired" in resp2.data
     assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
 
 
-def test_confirm_without_preview_rejected(logged_in, data_path):
+def test_confirm_without_preview_rejected(admin, data_path):
     save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
-    resp = confirm(logged_in, "forged-token-aaaaaaaaaaaaaaaa")
+    resp = confirm(admin, "forged-token-aaaaaaaaaaaaaaaa")
     assert b"expired" in resp.data
     assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
 
 
-def test_bad_file_keeps_existing_data(logged_in, data_path, tmp_path):
+def test_bad_file_keeps_existing_data(admin, data_path, tmp_path):
     save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
     bad = tmp_path / "bad.xlsx"
     bad.write_bytes(b"not really an xlsx")
-    resp = preview(logged_in, bad)
+    resp = preview(admin, bad)
     assert b"Not a valid .xlsx" in resp.data
     assert _token(resp) is None
     assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
 
 
-def test_no_file_selected(logged_in):
-    resp = logged_in.post("/admin", data={"admin_password": "adminpw"},
-                          content_type="multipart/form-data")
+def test_no_file_selected(admin):
+    resp = admin.post("/admin", data={"admin_password": "adminpw"},
+                      content_type="multipart/form-data")
     assert b"No file selected" in resp.data
 
 
-def test_admin_shows_no_check_yet(logged_in, data_path):
-    resp = logged_in.get("/admin")
+# --- link-health panel -----------------------------------------------------
+
+def test_admin_shows_no_check_yet(admin, data_path):
+    resp = admin.get("/admin")
     assert b"No link check has been run yet" in resp.data
 
 
-def test_admin_shows_all_ok(logged_in, data_path):
+def test_admin_shows_all_ok(admin, data_path):
     save_report({"checked_at": "2026-07-30T11:00:00Z", "total": 3,
                  "counts": {"ok": 3, "dead": 0, "suspect": 0, "nolink": 0,
                             "error": 0}, "flagged": []}, data_path)
-    resp = logged_in.get("/admin")
+    resp = admin.get("/admin")
     assert b"All 3 links OK" in resp.data
 
 
-def test_admin_lists_flagged(logged_in, data_path):
+def test_admin_lists_flagged(admin, data_path):
     save_report({"checked_at": "2026-07-30T11:00:00Z", "total": 2,
                  "counts": {"ok": 0, "dead": 1, "suspect": 1, "nolink": 0,
                             "error": 0},
@@ -139,36 +183,36 @@ def test_admin_lists_flagged(logged_in, data_path):
                       "status": 404},
                      {"id": "S1", "name": "Suspect Client", "category": "suspect",
                       "status": 200}]}, data_path)
-    resp = logged_in.get("/admin")
+    resp = admin.get("/admin")
     assert b"Dead Client" in resp.data
     assert b"Suspect Client" in resp.data
     assert b"dead" in resp.data and b"suspect" in resp.data
 
 
-def test_button_hidden_when_disabled(logged_in, data_path, monkeypatch):
+def test_button_hidden_when_disabled(admin, data_path, monkeypatch):
     monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", False)
-    resp = logged_in.get("/admin")
+    resp = admin.get("/admin")
     assert b'value="check_links"' not in resp.data
 
 
-def test_button_shown_when_enabled(logged_in, data_path, monkeypatch):
+def test_button_shown_when_enabled(admin, data_path, monkeypatch):
     monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", True)
-    resp = logged_in.get("/admin")
+    resp = admin.get("/admin")
     assert b'value="check_links"' in resp.data
 
 
-def test_check_links_post_disabled_is_refused(logged_in, data_path, monkeypatch):
+def test_check_links_post_disabled_is_refused(admin, data_path, monkeypatch):
     monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", False)
-    resp = logged_in.post("/admin", data={"action": "check_links"})
+    resp = admin.post("/admin", data={"action": "check_links"})
     assert b"not enabled" in resp.data
 
 
-def test_check_links_post_enabled_runs(logged_in, data_path, monkeypatch):
+def test_check_links_post_enabled_runs(admin, data_path, monkeypatch):
     monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", True)
     def fake_check_all(clients, **kw):
         return {"checked_at": "2026-07-30T11:00:00Z", "total": 0,
                 "counts": {"ok": 0, "dead": 0, "suspect": 0, "nolink": 0,
                            "error": 0}, "flagged": []}
     monkeypatch.setattr(app_module, "check_all", fake_check_all)
-    resp = logged_in.post("/admin", data={"action": "check_links"})
+    resp = admin.post("/admin", data={"action": "check_links"})
     assert b"Check running" in resp.data

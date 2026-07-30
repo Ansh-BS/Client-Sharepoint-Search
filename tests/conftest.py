@@ -53,3 +53,10 @@ def client(data_path):
 def logged_in(client):
     client.post("/login", data={"password": "staffpw"})
     return client
+
+
+@pytest.fixture
+def admin(logged_in):
+    """Staff-logged-in client that has also unlocked the admin page."""
+    logged_in.post("/admin/unlock", data={"password": "adminpw"})
+    return logged_in
