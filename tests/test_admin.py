@@ -165,9 +165,7 @@ def test_check_links_post_disabled_is_refused(logged_in, data_path, monkeypatch)
 
 def test_check_links_post_enabled_runs(logged_in, data_path, monkeypatch):
     monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", True)
-    ran = {}
     def fake_check_all(clients, **kw):
-        ran["called"] = True
         return {"checked_at": "2026-07-30T11:00:00Z", "total": 0,
                 "counts": {"ok": 0, "dead": 0, "suspect": 0, "nolink": 0,
                            "error": 0}, "flagged": []}

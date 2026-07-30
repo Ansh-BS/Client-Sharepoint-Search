@@ -7,7 +7,6 @@ answers 404. This cannot prove folder contents or permissions, so any non-ok
 result is "needs review", never grounds to delete a client.
 """
 import datetime
-import socket
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor

@@ -144,7 +144,7 @@
     {% if not health %}
       <p class="sub">No link check has been run yet. Run
         <code>python check_links.py</code>{% if link_check_enabled %} or use the
-        button below{% endif %} to check every client's SharePoint link.</p>
+        button above{% endif %} to check every client's SharePoint link.</p>
     {% else %}
       <p class="sub">Last checked {{ health.checked_at }}.
         {{ health.counts.ok }} ok, {{ health.counts.dead }} dead,
