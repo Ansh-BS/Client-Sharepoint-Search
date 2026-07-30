@@ -1,6 +1,6 @@
 import re
 
-from storage import load_clients, save_clients
+from storage import load_clients, save_clients, save_report
 
 
 def preview(client, path, password="adminpw"):
@@ -114,3 +114,31 @@ def test_no_file_selected(logged_in):
     resp = logged_in.post("/admin", data={"admin_password": "adminpw"},
                           content_type="multipart/form-data")
     assert b"No file selected" in resp.data
+
+
+def test_admin_shows_no_check_yet(logged_in, data_path):
+    resp = logged_in.get("/admin")
+    assert b"No link check has been run yet" in resp.data
+
+
+def test_admin_shows_all_ok(logged_in, data_path):
+    save_report({"checked_at": "2026-07-30T11:00:00Z", "total": 3,
+                 "counts": {"ok": 3, "dead": 0, "suspect": 0, "nolink": 0,
+                            "error": 0}, "flagged": []}, data_path)
+    resp = logged_in.get("/admin")
+    assert b"All 3 links OK" in resp.data
+
+
+def test_admin_lists_flagged(logged_in, data_path):
+    save_report({"checked_at": "2026-07-30T11:00:00Z", "total": 2,
+                 "counts": {"ok": 0, "dead": 1, "suspect": 1, "nolink": 0,
+                            "error": 0},
+                 "flagged": [
+                     {"id": "D1", "name": "Dead Client", "category": "dead",
+                      "status": 404},
+                     {"id": "S1", "name": "Suspect Client", "category": "suspect",
+                      "status": 200}]}, data_path)
+    resp = logged_in.get("/admin")
+    assert b"Dead Client" in resp.data
+    assert b"Suspect Client" in resp.data
+    assert b"dead" in resp.data and b"suspect" in resp.data
