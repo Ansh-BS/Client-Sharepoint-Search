@@ -70,3 +70,55 @@ def test_check_all_report_shape(monkeypatch):
     flagged_ids = {f["id"] for f in report["flagged"]}
     assert flagged_ids == {"D1", "S1", "N1"}   # every non-ok, ok excluded
     assert report["checked_at"].endswith("Z")
+
+
+def test_malformed_url_is_error():
+    """Malformed URLs (no scheme, typo) degrade to error, not crash."""
+    assert link_health.check_link("not-a-real-url-no-scheme") == ("error", None)
+    assert link_health.check_link("htp://x") == ("error", None)
+
+
+def test_check_all_tolerates_malformed_link():
+    """One malformed link in batch doesn't abort; completes with error count."""
+    clients = [
+        {"id": "B1", "name": "Bad", "link": "malformed-no-scheme"},
+    ]
+    report = link_health.check_all(clients, workers=1)
+    assert report["total"] == 1
+    assert report["counts"]["error"] == 1
+    assert len(report["flagged"]) == 1
+    assert report["flagged"][0]["id"] == "B1"
+    assert report["flagged"][0]["category"] == "error"
+
+
+def test_redirect_not_followed():
+    """Verify _NoRedirect prevents following 3xx redirects - uses real HTTP server."""
+    import http.server
+    import socketserver
+    import threading
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_HEAD(self):
+            # Respond with 302 redirect; if followed, would get different response
+            self.send_response(302)
+            self.send_header("Location", "http://127.0.0.1:0/other")
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass  # Suppress logging
+
+    # Use dynamic port selection
+    server = socketserver.TCPServer(("127.0.0.1", 0), _Handler)
+    host, port = server.server_address
+    url = f"http://{host}:{port}/original"
+
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    try:
+        # Make real request through real _opener (with _NoRedirect)
+        result = link_health.check_link(url, timeout=5)
+        # Should classify 302 as "suspect" without following to the redirect location
+        assert result == ("suspect", 302), f"Expected ('suspect', 302), got {result}"
+    finally:
+        server.shutdown()

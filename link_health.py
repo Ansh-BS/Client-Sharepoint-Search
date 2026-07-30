@@ -35,15 +35,17 @@ def _classify(code):
 def check_link(url, timeout=15):
     if not url:
         return ("nolink", None)
-    req = urllib.request.Request(url, method="HEAD",
-                                headers={"User-Agent": USER_AGENT})
     try:
+        req = urllib.request.Request(url, method="HEAD",
+                                    headers={"User-Agent": USER_AGENT})
         resp = _opener.open(req, timeout=timeout)
         code = getattr(resp, "status", None) or resp.getcode()
         resp.close()
     except urllib.error.HTTPError as exc:
         code = exc.code
-    except (urllib.error.URLError, socket.timeout, TimeoutError, OSError):
+    except Exception:
+        # Catch all other exceptions (URLError, socket errors, TimeoutError, ValueError, etc.)
+        # so a single bad URL doesn't abort the batch in check_all
         return ("error", None)
     return (_classify(code), code)
 
