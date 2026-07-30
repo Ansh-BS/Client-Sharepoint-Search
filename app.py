@@ -13,7 +13,8 @@ from flask_limiter.util import get_remote_address
 
 from link_health import check_all
 from storage import (discard_pending, load_clients, load_pending,
-                     load_report, save_clients, save_pending, save_report)
+                     load_report, report_path, save_clients, save_pending,
+                     save_report)
 from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
@@ -177,10 +178,11 @@ def admin():
             if not LINK_CHECK_ENABLED:
                 error = "Link checking is not enabled on this server."
             else:
+                dest = report_path()
                 snapshot = load_clients()
 
                 def _run(clients):
-                    save_report(check_all(clients))
+                    save_report(check_all(clients), path=dest)
 
                 threading.Thread(target=_run, args=(snapshot,),
                                  daemon=True).start()
