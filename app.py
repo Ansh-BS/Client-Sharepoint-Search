@@ -2,6 +2,7 @@
 import hmac
 import os
 import secrets
+import threading
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -10,8 +11,9 @@ from flask import (Flask, jsonify, redirect, render_template, request,
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+from link_health import check_all
 from storage import (discard_pending, load_clients, load_pending,
-                     load_report, save_clients, save_pending)
+                     load_report, save_clients, save_pending, save_report)
 from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
@@ -141,6 +143,7 @@ def admin():
     result = None
     error = None
     preview = None
+    checking = False
     if request.method == "POST":
         action = request.form.get("action", "preview")
 
@@ -169,6 +172,19 @@ def admin():
                     session.pop("pending_upload", None)
                     missing = [c["name"] for c in clients if not c["link"]]
                     result = {"count": len(clients), "missing": missing}
+
+        elif action == "check_links":
+            if not LINK_CHECK_ENABLED:
+                error = "Link checking is not enabled on this server."
+            else:
+                snapshot = load_clients()
+
+                def _run(clients):
+                    save_report(check_all(clients))
+
+                threading.Thread(target=_run, args=(snapshot,),
+                                 daemon=True).start()
+                checking = True
 
         else:  # preview: parse and stash, but change nothing yet
             if not hmac.compare_digest(request.form.get("admin_password", ""),
@@ -203,7 +219,8 @@ def admin():
                         }
     return render_template("admin.html", result=result, error=error,
                            preview=preview, health=load_report(),
-                           link_check_enabled=LINK_CHECK_ENABLED)
+                           link_check_enabled=LINK_CHECK_ENABLED,
+                           checking=checking)
 
 
 if __name__ == "__main__":
