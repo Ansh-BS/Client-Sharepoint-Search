@@ -4,12 +4,12 @@ import app as app_module
 from storage import load_clients, save_clients, save_report
 
 
-def preview(client, path, password="adminpw"):
+def preview(client, path):
     """Step 1: upload for review. Returns the response (data NOT yet saved)."""
     with open(path, "rb") as f:
         return client.post(
             "/admin",
-            data={"admin_password": password, "file": (f, "upload.xlsx")},
+            data={"file": (f, "upload.xlsx")},
             content_type="multipart/form-data",
         )
 
@@ -24,9 +24,9 @@ def confirm(client, token):
     return client.post("/admin", data={"action": "confirm", "token": token})
 
 
-def upload(client, path, password="adminpw"):
+def upload(client, path):
     """Full two-step replace: preview then confirm. Returns the confirm resp."""
-    resp = preview(client, path, password=password)
+    resp = preview(client, path)
     token = _token(resp)
     return confirm(client, token)
 
@@ -77,15 +77,18 @@ def test_logout_clears_admin(admin, data_path):
     assert resp.status_code == 302  # session cleared -> gate redirects
 
 
-# --- upload flow (now behind the unlock gate) ------------------------------
+# --- upload flow (now behind the unlock gate, no upload password) ----------
 
-def test_wrong_admin_password_rejected(admin, data_path, make_xlsx, tmp_path):
-    save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
+def test_admin_page_has_no_password_field(admin, data_path):
+    resp = admin.get("/admin")
+    assert b'name="admin_password"' not in resp.data
+
+
+def test_upload_needs_no_admin_password(admin, data_path, make_xlsx, tmp_path):
     p = make_xlsx(tmp_path / "new.xlsx", [("N1", "New Client", "https://x")])
-    resp = preview(admin, p, password="wrong")
-    assert b"Wrong admin password" in resp.data
-    assert _token(resp) is None
-    assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
+    resp = upload(admin, p)
+    assert b"Client list replaced" in resp.data
+    assert [c["name"] for c in load_clients(data_path)] == ["New Client"]
 
 
 def test_preview_does_not_modify_data(admin, data_path, make_xlsx, tmp_path):
@@ -154,8 +157,7 @@ def test_bad_file_keeps_existing_data(admin, data_path, tmp_path):
 
 
 def test_no_file_selected(admin):
-    resp = admin.post("/admin", data={"admin_password": "adminpw"},
-                      content_type="multipart/form-data")
+    resp = admin.post("/admin", data={}, content_type="multipart/form-data")
     assert b"No file selected" in resp.data
 
 

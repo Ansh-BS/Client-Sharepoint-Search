@@ -216,35 +216,31 @@ def admin():
                 checking = True
 
         else:  # preview: parse and stash, but change nothing yet
-            if not hmac.compare_digest(request.form.get("admin_password", ""),
-                                       os.getenv("ADMIN_PASSWORD")):
-                error = "Wrong admin password."
+            file = request.files.get("file")
+            if file is None or not file.filename:
+                error = "No file selected."
             else:
-                file = request.files.get("file")
-                if file is None or not file.filename:
-                    error = "No file selected."
+                try:
+                    clients = parse_xlsx(file)
+                except ParseError as exc:
+                    error = str(exc)
                 else:
-                    try:
-                        clients = parse_xlsx(file)
-                    except ParseError as exc:
-                        error = str(exc)
-                    else:
-                        current = load_clients()
-                        dropped, added = _diff_clients(current, clients)
-                        token = secrets.token_urlsafe(24)
-                        old = session.get("pending_upload")
-                        if old and old != token:
-                            discard_pending(old)
-                        save_pending(clients, token)
-                        session["pending_upload"] = token
-                        preview = {
-                            "token": token,
-                            "count": len(clients),
-                            "current_count": len(current),
-                            "added": [c["name"] for c in added],
-                            "dropped": [c["name"] for c in dropped],
-                            "missing": [c["name"] for c in clients
-                                        if not c["link"]],
+                    current = load_clients()
+                    dropped, added = _diff_clients(current, clients)
+                    token = secrets.token_urlsafe(24)
+                    old = session.get("pending_upload")
+                    if old and old != token:
+                        discard_pending(old)
+                    save_pending(clients, token)
+                    session["pending_upload"] = token
+                    preview = {
+                        "token": token,
+                        "count": len(clients),
+                        "current_count": len(current),
+                        "added": [c["name"] for c in added],
+                        "dropped": [c["name"] for c in dropped],
+                        "missing": [c["name"] for c in clients
+                                    if not c["link"]],
                         }
     return render_template("admin.html", result=result, error=error,
                            preview=preview, health=load_report(),
