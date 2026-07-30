@@ -86,6 +86,19 @@ def staff_required(view):
     return wrapped
 
 
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("staff"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "unauthenticated"}), 401
+            return redirect(url_for("login"))
+        if not session.get("admin"):
+            return redirect(url_for("admin_unlock"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per 15 minutes", methods=["POST"])
 def login():
@@ -137,9 +150,23 @@ def _diff_clients(current, new):
     return dropped, added
 
 
-@app.route("/admin", methods=["GET", "POST"])
+@app.route("/admin/unlock", methods=["GET", "POST"])
 @limiter.limit("10 per 15 minutes", methods=["POST"])
 @staff_required
+def admin_unlock():
+    error = None
+    if request.method == "POST":
+        if hmac.compare_digest(request.form.get("password", ""),
+                               os.getenv("ADMIN_PASSWORD")):
+            session["admin"] = True
+            return redirect(url_for("admin"))
+        error = "Wrong admin password."
+    return render_template("admin_unlock.html", error=error)
+
+
+@app.route("/admin", methods=["GET", "POST"])
+@limiter.limit("10 per 15 minutes", methods=["POST"])
+@admin_required
 def admin():
     result = None
     error = None
@@ -189,35 +216,31 @@ def admin():
                 checking = True
 
         else:  # preview: parse and stash, but change nothing yet
-            if not hmac.compare_digest(request.form.get("admin_password", ""),
-                                       os.getenv("ADMIN_PASSWORD")):
-                error = "Wrong admin password."
+            file = request.files.get("file")
+            if file is None or not file.filename:
+                error = "No file selected."
             else:
-                file = request.files.get("file")
-                if file is None or not file.filename:
-                    error = "No file selected."
+                try:
+                    clients = parse_xlsx(file)
+                except ParseError as exc:
+                    error = str(exc)
                 else:
-                    try:
-                        clients = parse_xlsx(file)
-                    except ParseError as exc:
-                        error = str(exc)
-                    else:
-                        current = load_clients()
-                        dropped, added = _diff_clients(current, clients)
-                        token = secrets.token_urlsafe(24)
-                        old = session.get("pending_upload")
-                        if old and old != token:
-                            discard_pending(old)
-                        save_pending(clients, token)
-                        session["pending_upload"] = token
-                        preview = {
-                            "token": token,
-                            "count": len(clients),
-                            "current_count": len(current),
-                            "added": [c["name"] for c in added],
-                            "dropped": [c["name"] for c in dropped],
-                            "missing": [c["name"] for c in clients
-                                        if not c["link"]],
+                    current = load_clients()
+                    dropped, added = _diff_clients(current, clients)
+                    token = secrets.token_urlsafe(24)
+                    old = session.get("pending_upload")
+                    if old and old != token:
+                        discard_pending(old)
+                    save_pending(clients, token)
+                    session["pending_upload"] = token
+                    preview = {
+                        "token": token,
+                        "count": len(clients),
+                        "current_count": len(current),
+                        "added": [c["name"] for c in added],
+                        "dropped": [c["name"] for c in dropped],
+                        "missing": [c["name"] for c in clients
+                                    if not c["link"]],
                         }
     return render_template("admin.html", result=result, error=error,
                            preview=preview, health=load_report(),

@@ -67,11 +67,11 @@ def test_theme_independent_values_are_not_duplicated():
             f"{token} is defined more than once"
 
 
-def test_every_page_loads_theme_js_before_the_stylesheet(logged_in):
+def test_every_page_loads_theme_js_before_the_stylesheet(admin):
     """theme.js must run before first paint, or the page paints in the wrong
     theme and visibly flips. Before the stylesheet link is the safe spot."""
-    for path in ("/", "/admin"):
-        html = logged_in.get(path).get_data(as_text=True)
+    for path in ("/", "/admin", "/admin/unlock"):
+        html = admin.get(path).get_data(as_text=True)
         assert "theme.js" in html, f"{path} does not load theme.js"
         assert html.index("theme.js") < html.index("style.css"), \
             f"{path} loads theme.js after the stylesheet"
@@ -83,14 +83,14 @@ def test_login_page_loads_theme_js(client):
     assert html.index("theme.js") < html.index("style.css")
 
 
-def test_theme_js_and_stylesheet_carry_the_asset_version(logged_in):
+def test_theme_js_and_stylesheet_carry_the_asset_version(admin):
     """A deploy that changes style.css or theme.js but leaves the browser's
     cached copy in place is exactly the failure mode this project has hit
     before (see reference_sharepoint_template_cache). Both URLs must carry
     the current ASSET_VERSION as a `?v=` cache-buster."""
     from app import ASSET_VERSION
-    for path in ("/", "/admin", "/login"):
-        html = logged_in.get(path).get_data(as_text=True)
+    for path in ("/", "/admin", "/admin/unlock", "/login"):
+        html = admin.get(path).get_data(as_text=True)
         assert f"theme.js?v={ASSET_VERSION}" in html, f"{path}: theme.js missing ?v="
         assert f"style.css?v={ASSET_VERSION}" in html, f"{path}: style.css missing ?v="
 
@@ -98,15 +98,15 @@ def test_theme_js_and_stylesheet_carry_the_asset_version(logged_in):
 def test_theme_js_is_not_deferred_or_async():
     """defer/async would let the page paint first — the exact flash this
     script exists to prevent."""
-    for name in ("index.html", "login.html", "admin.html"):
+    for name in ("index.html", "login.html", "admin.html", "admin_unlock.html"):
         html = (Path(__file__).resolve().parent.parent / "templates" / name).read_text(encoding="utf-8")
         line = next(ln for ln in html.splitlines() if "theme.js" in ln)
         assert "defer" not in line and "async" not in line, f"{name}: {line}"
 
 
-def test_toggle_is_on_the_signed_in_pages(logged_in):
-    for path in ("/", "/admin"):
-        assert 'id="theme-toggle"' in logged_in.get(path).get_data(as_text=True)
+def test_toggle_is_on_the_signed_in_pages(admin):
+    for path in ("/", "/admin", "/admin/unlock"):
+        assert 'id="theme-toggle"' in admin.get(path).get_data(as_text=True)
 
 
 def test_toggle_is_not_on_the_login_page(client):
@@ -117,7 +117,7 @@ def test_toggle_is_not_on_the_login_page(client):
 
 def test_no_inline_script_anywhere():
     """CSP is script-src 'self'. An inline script would need a nonce or hash."""
-    for name in ("index.html", "login.html", "admin.html"):
+    for name in ("index.html", "login.html", "admin.html", "admin_unlock.html"):
         html = (Path(__file__).resolve().parent.parent / "templates" / name).read_text(encoding="utf-8")
         assert "<script>" not in html, f"{name} has an inline script"
 
