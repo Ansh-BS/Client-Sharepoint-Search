@@ -131,7 +131,9 @@
     <form method="post" class="inline-form">
       <input type="hidden" name="action" value="add_client">
       <label for="client_name">Name</label>
-      <div class="field"><input id="client_name" type="text" name="client_name" required></div>
+      <div class="field"><input id="client_name" type="text" name="client_name"
+             autocomplete="off" required></div>
+      <ul id="client-name-suggestions" class="suggest-list" hidden></ul>
       <label for="client_id">Client ID</label>
       <div class="field"><input id="client_id" type="text" name="client_id" required></div>
       <label for="client_link">SharePoint link (optional)</label>
@@ -150,7 +152,9 @@
     <form method="post" class="inline-form">
       <input type="hidden" name="action" value="delete_client">
       <label for="client_query">Name or Client ID</label>
-      <div class="field"><input id="client_query" type="text" name="client_query" required></div>
+      <div class="field"><input id="client_query" type="text" name="client_query"
+             autocomplete="off" required></div>
+      <ul id="client-suggestions" class="suggest-list" hidden></ul>
       <button type="submit" class="secondary">Review removal</button>
     </form>
   </div>
@@ -203,5 +207,6 @@
 <script src="{{ url_for('static', filename='toast.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='modal.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='upload.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='client-lookup.js', v=asset_v) }}"></script>
 </body>
 </html>

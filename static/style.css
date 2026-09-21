@@ -291,7 +291,7 @@ main {
   width: 100%; max-width: 34rem;
   margin: 0 auto;
   padding: 0 var(--sp-4) 6rem;
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--sp-6);
 }
 main.narrow { max-width: 24rem; }
 
@@ -520,6 +520,7 @@ a.open:active { transform: translateY(1px); }
   box-shadow: var(--lift); padding: var(--sp-6);
 }
 .card h1 { margin: 0 0 .25rem; font-family: var(--display); font-size: 1.25rem; font-weight: 600; letter-spacing: -.02em; }
+.card h2 { margin: 0 0 .25rem; font-family: var(--display); font-size: 1.1rem; font-weight: 600; letter-spacing: -.02em; }
 .card .sub { margin: 0 0 var(--sp-6); font-size: .875rem; color: var(--muted); }
 
 label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .3rem; }
@@ -535,6 +536,21 @@ label + input { margin-bottom: var(--sp-4); }
   outline: none; border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
+
+/* Live client-name list under an input (e.g. Remove-a-client). Sits inline
+   below the field, not a floating overlay. */
+.suggest-list {
+  list-style: none; margin: 0 0 var(--sp-4); padding: 0;
+  max-height: 11rem; overflow-y: auto;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.suggest-list li {
+  padding: .5rem .75rem; font-size: .875rem; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.suggest-list li:last-child { border-bottom: 0; }
+.suggest-list li:hover, .suggest-list li.active { background: var(--bg); }
+.suggest-list .suggest-empty { color: var(--muted); cursor: default; }
 
 /* HeroUI's button geometry: a stadium, and a press that scales rather than
    nudges. Full width is this app's own — the login and admin forms are single
