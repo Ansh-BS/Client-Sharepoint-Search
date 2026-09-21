@@ -171,7 +171,10 @@ def admin_unlock():
 
 
 @app.route("/admin", methods=["GET", "POST"])
-@limiter.limit("10 per 15 minutes", methods=["POST"])
+# Not a password check (unlike login/unlock) — just abuse mitigation on an
+# already-gated route. Preview+confirm makes every add/remove/replace two
+# requests, so this needs headroom the stricter auth limits don't.
+@limiter.limit("40 per 15 minutes", methods=["POST"])
 @admin_required
 def admin():
     result = None
