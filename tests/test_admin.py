@@ -1,7 +1,6 @@
 import re
 
-import app as app_module
-from storage import load_clients, save_clients, save_report
+from storage import load_clients, save_clients
 
 
 def preview(client, path):
@@ -161,13 +160,50 @@ def test_no_file_selected(admin):
     assert b"No file selected" in resp.data
 
 
-# --- quick add / delete (no spreadsheet) ------------------------------------
+# --- quick add / delete (no spreadsheet) — two-step preview/confirm --------
+
+def preview_add(client, name, cid, link=""):
+    return client.post("/admin", data={
+        "action": "add_client", "client_name": name,
+        "client_id": cid, "client_link": link})
+
+
+def confirm_add(client):
+    return client.post("/admin", data={"action": "confirm_add_client"})
+
+
+def add_client(client, name, cid, link=""):
+    """Full two-step add/update: preview then confirm."""
+    preview_add(client, name, cid, link)
+    return confirm_add(client)
+
+
+def preview_delete(client, query):
+    return client.post("/admin", data={"action": "delete_client",
+                                       "client_query": query})
+
+
+def confirm_delete(client):
+    return client.post("/admin", data={"action": "confirm_delete_client"})
+
+
+def delete_client(client, query):
+    """Full two-step remove: preview then confirm."""
+    preview_delete(client, query)
+    return confirm_delete(client)
+
+
+def test_add_client_preview_does_not_save(admin, data_path):
+    save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
+    resp = preview_add(admin, "New Client", "N1", "https://x")
+    assert b"Review before saving" in resp.data
+    assert b"Adds a new client" in resp.data
+    assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
+
 
 def test_add_client_appends_new(admin, data_path):
     save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
-    resp = admin.post("/admin", data={
-        "action": "add_client", "client_name": "New Client",
-        "client_id": "N1", "client_link": "https://x"})
+    resp = add_client(admin, "New Client", "N1", "https://x")
     assert b"Added client: New Client" in resp.data
     names = [c["name"] for c in load_clients(data_path)]
     assert names == ["Old Client", "New Client"]
@@ -175,9 +211,9 @@ def test_add_client_appends_new(admin, data_path):
 
 def test_add_client_updates_existing_by_id(admin, data_path):
     save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
-    resp = admin.post("/admin", data={
-        "action": "add_client", "client_name": "New Client",
-        "client_id": "N1", "client_link": "https://x"})
+    resp = preview_add(admin, "New Client", "N1", "https://x")
+    assert b"Updates existing client" in resp.data
+    resp = confirm_add(admin)
     assert b"Updated client: New Client" in resp.data
     clients = load_clients(data_path)
     assert len(clients) == 1
@@ -185,18 +221,29 @@ def test_add_client_updates_existing_by_id(admin, data_path):
 
 
 def test_add_client_requires_name(admin, data_path):
-    resp = admin.post("/admin", data={"action": "add_client",
-                                      "client_name": "", "client_id": "N1"})
+    resp = preview_add(admin, "", "N1")
     assert b"Client name and Client ID required" in resp.data
     assert load_clients(data_path) == []
 
 
 def test_add_client_requires_id(admin, data_path):
-    resp = admin.post("/admin", data={"action": "add_client",
-                                      "client_name": "New Client",
-                                      "client_id": ""})
+    resp = preview_add(admin, "New Client", "")
     assert b"Client name and Client ID required" in resp.data
     assert load_clients(data_path) == []
+
+
+def test_confirm_add_client_without_preview_rejected(admin, data_path):
+    resp = confirm_add(admin)
+    assert b"expired" in resp.data
+    assert load_clients(data_path) == []
+
+
+def test_delete_client_preview_does_not_remove(admin, data_path):
+    save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
+    resp = preview_delete(admin, "N1")
+    assert b"Review before removing" in resp.data
+    assert b"New Client" in resp.data
+    assert len(load_clients(data_path)) == 1
 
 
 def test_delete_client_by_id(admin, data_path):
@@ -204,8 +251,7 @@ def test_delete_client_by_id(admin, data_path):
         {"id": "N1", "name": "New Client", "link": None},
         {"id": "N2", "name": "Other Client", "link": None},
     ], data_path)
-    resp = admin.post("/admin", data={"action": "delete_client",
-                                      "client_query": "N1"})
+    resp = delete_client(admin, "N1")
     assert b"Removed client: New Client" in resp.data
     names = [c["name"] for c in load_clients(data_path)]
     assert names == ["Other Client"]
@@ -213,80 +259,43 @@ def test_delete_client_by_id(admin, data_path):
 
 def test_delete_client_by_name(admin, data_path):
     save_clients([{"id": "", "name": "No Id Client", "link": None}], data_path)
-    resp = admin.post("/admin", data={"action": "delete_client",
-                                      "client_query": "no id client"})
+    resp = delete_client(admin, "no id client")
     assert b"Removed client: No Id Client" in resp.data
     assert load_clients(data_path) == []
 
 
 def test_delete_client_not_found(admin, data_path):
     save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
-    resp = admin.post("/admin", data={"action": "delete_client",
-                                      "client_query": "Nope"})
+    resp = preview_delete(admin, "Nope")
     assert b"No client matches" in resp.data
     assert len(load_clients(data_path)) == 1
 
 
 def test_delete_client_requires_query(admin, data_path):
-    resp = admin.post("/admin", data={"action": "delete_client",
-                                      "client_query": ""})
+    resp = preview_delete(admin, "")
     assert b"Enter a client name or ID" in resp.data
 
 
-# --- link-health panel -----------------------------------------------------
-
-def test_admin_shows_no_check_yet(admin, data_path):
-    resp = admin.get("/admin")
-    assert b"No link check has been run yet" in resp.data
-
-
-def test_admin_shows_all_ok(admin, data_path):
-    save_report({"checked_at": "2026-07-30T11:00:00Z", "total": 3,
-                 "counts": {"ok": 3, "dead": 0, "suspect": 0, "nolink": 0,
-                            "error": 0}, "flagged": []}, data_path)
-    resp = admin.get("/admin")
-    assert b"All 3 links OK" in resp.data
+def test_confirm_delete_client_without_preview_rejected(admin, data_path):
+    save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
+    resp = confirm_delete(admin)
+    assert b"expired" in resp.data
+    assert len(load_clients(data_path)) == 1
 
 
-def test_admin_lists_flagged(admin, data_path):
-    save_report({"checked_at": "2026-07-30T11:00:00Z", "total": 2,
-                 "counts": {"ok": 0, "dead": 1, "suspect": 1, "nolink": 0,
-                            "error": 0},
-                 "flagged": [
-                     {"id": "D1", "name": "Dead Client", "category": "dead",
-                      "status": 404},
-                     {"id": "S1", "name": "Suspect Client", "category": "suspect",
-                      "status": 200}]}, data_path)
-    resp = admin.get("/admin")
-    assert b"Dead Client" in resp.data
-    assert b"Suspect Client" in resp.data
-    assert b"dead" in resp.data and b"suspect" in resp.data
+def test_cancel_discards_add_preview(admin, data_path):
+    save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
+    preview_add(admin, "New Client", "N1", "https://x")
+    admin.post("/admin", data={"action": "cancel"})
+    resp = confirm_add(admin)
+    assert b"expired" in resp.data
+    assert [c["name"] for c in load_clients(data_path)] == ["Old Client"]
 
 
-def test_button_hidden_when_disabled(admin, data_path, monkeypatch):
-    monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", False)
-    resp = admin.get("/admin")
-    assert b'value="check_links"' not in resp.data
-
-
-def test_button_shown_when_enabled(admin, data_path, monkeypatch):
-    monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", True)
-    resp = admin.get("/admin")
-    assert b'value="check_links"' in resp.data
-
-
-def test_check_links_post_disabled_is_refused(admin, data_path, monkeypatch):
-    monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", False)
-    resp = admin.post("/admin", data={"action": "check_links"})
-    assert b"not enabled" in resp.data
-
-
-def test_check_links_post_enabled_runs(admin, data_path, monkeypatch):
-    monkeypatch.setattr(app_module, "LINK_CHECK_ENABLED", True)
-    def fake_check_all(clients, **kw):
-        return {"checked_at": "2026-07-30T11:00:00Z", "total": 0,
-                "counts": {"ok": 0, "dead": 0, "suspect": 0, "nolink": 0,
-                           "error": 0}, "flagged": []}
-    monkeypatch.setattr(app_module, "check_all", fake_check_all)
-    resp = admin.post("/admin", data={"action": "check_links"})
-    assert b"Check running" in resp.data
+def test_cancel_discards_delete_preview(admin, data_path):
+    save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
+    preview_delete(admin, "N1")
+    admin.post("/admin", data={"action": "cancel"})
+    resp = confirm_delete(admin)
+    assert b"expired" in resp.data
+    assert len(load_clients(data_path)) == 1

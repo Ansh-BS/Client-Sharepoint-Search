@@ -2,7 +2,6 @@
 import hmac
 import os
 import secrets
-import threading
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -11,10 +10,8 @@ from flask import (Flask, jsonify, redirect, render_template, request,
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-from link_health import check_all
 from storage import (discard_pending, load_clients, load_pending,
-                     load_report, report_path, save_clients, save_pending,
-                     save_report)
+                     save_clients, save_pending)
 from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
@@ -43,13 +40,7 @@ limiter = Limiter(get_remote_address, app=app, default_limits=[],
 # leaves staff staring at the old ones. Bump this on every deploy that touches
 # style.css, search.js, theme.js or any of the other static scripts; the
 # changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "12"
-
-# Enables button-related copy/actions for the link-health check on /admin
-# (the button itself lands in a later task). Default off: staff who haven't
-# opted in should not see instructions for a control that doesn't exist yet.
-LINK_CHECK_ENABLED = os.getenv("LINK_CHECK_ENABLED", "").strip().lower() in (
-    "1", "true", "yes")
+ASSET_VERSION = "13"
 
 
 @app.context_processor
@@ -150,6 +141,21 @@ def _diff_clients(current, new):
     return dropped, added
 
 
+def _find_by_key(clients, cid, name):
+    key = _client_key({"id": cid, "name": name})
+    return next((i for i, c in enumerate(clients) if _client_key(c) == key), None)
+
+
+def _find_by_query(clients, query):
+    idx = next((i for i, c in enumerate(clients)
+               if (c.get("id") or "").strip() == query), None)
+    if idx is None:
+        idx = next((i for i, c in enumerate(clients)
+                   if (c.get("name") or "").strip().casefold()
+                   == query.casefold()), None)
+    return idx
+
+
 @app.route("/admin/unlock", methods=["GET", "POST"])
 @limiter.limit("10 per 15 minutes", methods=["POST"])
 @staff_required
@@ -171,15 +177,16 @@ def admin():
     result = None
     error = None
     preview = None
-    checking = False
     if request.method == "POST":
         action = request.form.get("action", "preview")
 
         if action == "cancel":
-            # Throw away an unconfirmed preview and return to a clean form.
+            # Throw away whichever unconfirmed preview is pending and return
+            # to a clean form.
             token = session.pop("pending_upload", None)
             if token:
                 discard_pending(token)
+            session.pop("pending_action", None)
             return redirect(url_for("admin"))
 
         elif action == "confirm":
@@ -210,18 +217,31 @@ def admin():
                 error = "Client name and Client ID required."
             else:
                 clients = load_clients()
-                key = _client_key({"id": cid, "name": name})
-                idx = next((i for i, c in enumerate(clients)
-                           if _client_key(c) == key), None)
-                entry = {"id": cid, "name": name, "link": link}
+                idx = _find_by_key(clients, cid, name)
+                verb = "Added" if idx is None else "Updated"
+                old_link = clients[idx]["link"] if idx is not None else None
+                pending = {"kind": "add", "name": name, "id": cid,
+                          "link": link, "verb": verb, "old_link": old_link}
+                session["pending_action"] = pending
+                preview = pending
+
+        elif action == "confirm_add_client":
+            pending = session.get("pending_action")
+            if not pending or pending.get("kind") != "add":
+                error = "That preview expired. Add the client again."
+            else:
+                clients = load_clients()
+                idx = _find_by_key(clients, pending["id"], pending["name"])
+                entry = {"id": pending["id"], "name": pending["name"],
+                         "link": pending["link"]}
                 if idx is None:
                     clients.append(entry)
-                    verb = "Added"
                 else:
                     clients[idx] = entry
-                    verb = "Updated"
                 save_clients(clients)
-                result = {"kind": "add", "verb": verb, "name": name}
+                session.pop("pending_action", None)
+                result = {"kind": "add", "verb": pending["verb"],
+                          "name": pending["name"]}
 
         elif action == "delete_client":
             query = request.form.get("client_query", "").strip()
@@ -229,32 +249,31 @@ def admin():
                 error = "Enter a client name or ID to remove."
             else:
                 clients = load_clients()
-                idx = next((i for i, c in enumerate(clients)
-                           if (c.get("id") or "").strip() == query), None)
-                if idx is None:
-                    idx = next((i for i, c in enumerate(clients)
-                               if (c.get("name") or "").strip().casefold()
-                               == query.casefold()), None)
+                idx = _find_by_query(clients, query)
                 if idx is None:
                     error = f'No client matches "{query}".'
+                else:
+                    found = clients[idx]
+                    pending = {"kind": "delete", "query": query,
+                              "id": found.get("id"), "name": found["name"],
+                              "link": found.get("link")}
+                    session["pending_action"] = pending
+                    preview = pending
+
+        elif action == "confirm_delete_client":
+            pending = session.get("pending_action")
+            if not pending or pending.get("kind") != "delete":
+                error = "That preview expired. Remove the client again."
+            else:
+                clients = load_clients()
+                idx = _find_by_query(clients, pending["query"])
+                if idx is None:
+                    error = f'No client matches "{pending["query"]}".'
                 else:
                     removed = clients.pop(idx)
                     save_clients(clients)
                     result = {"kind": "delete", "name": removed["name"]}
-
-        elif action == "check_links":
-            if not LINK_CHECK_ENABLED:
-                error = "Link checking is not enabled on this server."
-            else:
-                dest = report_path()
-                snapshot = load_clients()
-
-                def _run(clients):
-                    save_report(check_all(clients), path=dest)
-
-                threading.Thread(target=_run, args=(snapshot,),
-                                 daemon=True).start()
-                checking = True
+                session.pop("pending_action", None)
 
         else:  # preview: parse and stash, but change nothing yet
             file = request.files.get("file")
@@ -275,6 +294,7 @@ def admin():
                     save_pending(clients, token)
                     session["pending_upload"] = token
                     preview = {
+                        "kind": "replace",
                         "token": token,
                         "count": len(clients),
                         "current_count": len(current),
@@ -284,9 +304,7 @@ def admin():
                                     if not c["link"]],
                         }
     return render_template("admin.html", result=result, error=error,
-                           preview=preview, health=load_report(),
-                           link_check_enabled=LINK_CHECK_ENABLED,
-                           checking=checking)
+                           preview=preview)
 
 
 if __name__ == "__main__":
