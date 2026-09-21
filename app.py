@@ -40,7 +40,7 @@ limiter = Limiter(get_remote_address, app=app, default_limits=[],
 # leaves staff staring at the old ones. Bump this on every deploy that touches
 # style.css, search.js, theme.js or any of the other static scripts; the
 # changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "15"
+ASSET_VERSION = "16"
 
 
 @app.context_processor

@@ -295,6 +295,14 @@ main {
 }
 main.narrow { max-width: 24rem; }
 
+/* Credit line. main is flex:1, so this stays at the bottom of short pages
+   without being fixed over the content. */
+.site-footer {
+  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+  text-align: center; text-wrap: balance;
+  font-size: .75rem; line-height: 1.6; color: var(--muted);
+}
+
 /* Brand lockup over the box: logo beside the name, one centered object. Stays
    put while searching — it's identity, not a prompt. */
 .brandmark {
