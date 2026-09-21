@@ -199,7 +199,48 @@ def admin():
                     discard_pending(token)
                     session.pop("pending_upload", None)
                     missing = [c["name"] for c in clients if not c["link"]]
-                    result = {"count": len(clients), "missing": missing}
+                    result = {"kind": "replace", "count": len(clients),
+                              "missing": missing}
+
+        elif action == "add_client":
+            name = request.form.get("client_name", "").strip()
+            cid = request.form.get("client_id", "").strip()
+            link = request.form.get("client_link", "").strip() or None
+            if not name or not cid:
+                error = "Client name and Client ID required."
+            else:
+                clients = load_clients()
+                key = _client_key({"id": cid, "name": name})
+                idx = next((i for i, c in enumerate(clients)
+                           if _client_key(c) == key), None)
+                entry = {"id": cid, "name": name, "link": link}
+                if idx is None:
+                    clients.append(entry)
+                    verb = "Added"
+                else:
+                    clients[idx] = entry
+                    verb = "Updated"
+                save_clients(clients)
+                result = {"kind": "add", "verb": verb, "name": name}
+
+        elif action == "delete_client":
+            query = request.form.get("client_query", "").strip()
+            if not query:
+                error = "Enter a client name or ID to remove."
+            else:
+                clients = load_clients()
+                idx = next((i for i, c in enumerate(clients)
+                           if (c.get("id") or "").strip() == query), None)
+                if idx is None:
+                    idx = next((i for i, c in enumerate(clients)
+                               if (c.get("name") or "").strip().casefold()
+                               == query.casefold()), None)
+                if idx is None:
+                    error = f'No client matches "{query}".'
+                else:
+                    removed = clients.pop(idx)
+                    save_clients(clients)
+                    result = {"kind": "delete", "name": removed["name"]}
 
         elif action == "check_links":
             if not LINK_CHECK_ENABLED:

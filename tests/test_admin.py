@@ -161,6 +161,78 @@ def test_no_file_selected(admin):
     assert b"No file selected" in resp.data
 
 
+# --- quick add / delete (no spreadsheet) ------------------------------------
+
+def test_add_client_appends_new(admin, data_path):
+    save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
+    resp = admin.post("/admin", data={
+        "action": "add_client", "client_name": "New Client",
+        "client_id": "N1", "client_link": "https://x"})
+    assert b"Added client: New Client" in resp.data
+    names = [c["name"] for c in load_clients(data_path)]
+    assert names == ["Old Client", "New Client"]
+
+
+def test_add_client_updates_existing_by_id(admin, data_path):
+    save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
+    resp = admin.post("/admin", data={
+        "action": "add_client", "client_name": "New Client",
+        "client_id": "N1", "client_link": "https://x"})
+    assert b"Updated client: New Client" in resp.data
+    clients = load_clients(data_path)
+    assert len(clients) == 1
+    assert clients[0]["link"] == "https://x"
+
+
+def test_add_client_requires_name(admin, data_path):
+    resp = admin.post("/admin", data={"action": "add_client",
+                                      "client_name": "", "client_id": "N1"})
+    assert b"Client name and Client ID required" in resp.data
+    assert load_clients(data_path) == []
+
+
+def test_add_client_requires_id(admin, data_path):
+    resp = admin.post("/admin", data={"action": "add_client",
+                                      "client_name": "New Client",
+                                      "client_id": ""})
+    assert b"Client name and Client ID required" in resp.data
+    assert load_clients(data_path) == []
+
+
+def test_delete_client_by_id(admin, data_path):
+    save_clients([
+        {"id": "N1", "name": "New Client", "link": None},
+        {"id": "N2", "name": "Other Client", "link": None},
+    ], data_path)
+    resp = admin.post("/admin", data={"action": "delete_client",
+                                      "client_query": "N1"})
+    assert b"Removed client: New Client" in resp.data
+    names = [c["name"] for c in load_clients(data_path)]
+    assert names == ["Other Client"]
+
+
+def test_delete_client_by_name(admin, data_path):
+    save_clients([{"id": "", "name": "No Id Client", "link": None}], data_path)
+    resp = admin.post("/admin", data={"action": "delete_client",
+                                      "client_query": "no id client"})
+    assert b"Removed client: No Id Client" in resp.data
+    assert load_clients(data_path) == []
+
+
+def test_delete_client_not_found(admin, data_path):
+    save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
+    resp = admin.post("/admin", data={"action": "delete_client",
+                                      "client_query": "Nope"})
+    assert b"No client matches" in resp.data
+    assert len(load_clients(data_path)) == 1
+
+
+def test_delete_client_requires_query(admin, data_path):
+    resp = admin.post("/admin", data={"action": "delete_client",
+                                      "client_query": ""})
+    assert b"Enter a client name or ID" in resp.data
+
+
 # --- link-health panel -----------------------------------------------------
 
 def test_admin_shows_no_check_yet(admin, data_path):
