@@ -3,6 +3,7 @@ import hmac
 import logging
 import os
 import secrets
+import time
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -28,6 +29,11 @@ if _missing:
 # ones; what someone types is matched case-insensitively.
 ADMIN_USERNAMES = tuple(n.strip() for n in os.getenv("ADMIN_USERNAMES").split(",")
                         if n.strip())
+
+# How long /admin stays unlocked with nothing happening. Idle, not absolute:
+# every admin request pushes the clock forward, so real work is never cut off
+# — but a machine left at a desk locks itself. Staff login is unaffected.
+ADMIN_IDLE_SECONDS = 15 * 60
 if not ADMIN_USERNAMES:
     raise SystemExit("ADMIN_USERNAMES must list at least one username, "
                      "comma-separated.")
@@ -56,7 +62,7 @@ limiter = Limiter(get_remote_address, app=app, default_limits=[],
 # leaves staff staring at the old ones. Bump this on every deploy that touches
 # style.css, search.js, theme.js or any of the other static scripts; the
 # changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "17"
+ASSET_VERSION = "18"
 
 
 @app.context_processor
@@ -118,6 +124,22 @@ def staff_required(view):
     return wrapped
 
 
+def _lock_admin(reason_idle=None):
+    """Drop the admin half of the session, leaving the staff login alone.
+
+    Anything staged but unconfirmed goes too: a pending upload otherwise
+    leaves its parsed copy sitting on disk with nobody coming back for it.
+    """
+    if reason_idle is not None:
+        _audit("auto-lock idle=%ds", int(reason_idle))
+    token = session.pop("pending_upload", None)
+    if token:
+        discard_pending(token)
+    session.pop("pending_action", None)
+    for key in ("admin", "admin_user", "admin_at"):
+        session.pop(key, None)
+
+
 def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -127,6 +149,11 @@ def admin_required(view):
             return redirect(url_for("login"))
         if not session.get("admin"):
             return redirect(url_for("admin_unlock"))
+        idle = time.time() - session.get("admin_at", 0)
+        if idle > ADMIN_IDLE_SECONDS:
+            _lock_admin(reason_idle=idle)
+            return redirect(url_for("admin_unlock", timeout=1))
+        session["admin_at"] = time.time()
         return view(*args, **kwargs)
     return wrapped
 
@@ -214,13 +241,16 @@ def admin_unlock():
         if matched and password_ok:
             session["admin"] = True
             session["admin_user"] = matched
+            session["admin_at"] = time.time()
             app.logger.info("ADMIN unlock ok user=%s ip=%s",
                             _loggable(matched), get_remote_address())
             return redirect(url_for("admin"))
         app.logger.info("ADMIN unlock FAILED user=%s ip=%s",
                         _loggable(submitted), get_remote_address())
         error = "Wrong admin username or password."
-    return render_template("admin_unlock.html", error=error)
+    return render_template("admin_unlock.html", error=error,
+                           timed_out=request.args.get("timeout") == "1",
+                           idle_minutes=ADMIN_IDLE_SECONDS // 60)
 
 
 @app.route("/admin", methods=["GET", "POST"])

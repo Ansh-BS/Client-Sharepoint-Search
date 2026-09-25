@@ -22,6 +22,8 @@
     <h1>Unlock admin</h1>
     <p class="sub">Enter the admin username and password to manage the client
       list. Ask the office manager if you don't have them.</p>
+    {% if timed_out %}<p class="notice" role="status">Admin locked after
+      {{ idle_minutes }} minutes of inactivity. Sign in again to continue.</p>{% endif %}
     {% if error %}<p class="error" role="alert">{{ error }} Check caps lock and try again.</p>{% endif %}
     <form method="post">
       <label for="username">Admin username</label>

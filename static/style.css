@@ -612,6 +612,15 @@ button.reveal[aria-pressed="true"] { color: var(--accent); }
   background: var(--danger-soft); border: 1px solid var(--danger-soft-line); color: var(--danger);
   font-size: .875rem;
 }
+/* Neither an error nor a success: the admin idle re-lock explaining itself.
+   Accent tones keep it clearly apart from the red wrong-credentials line. */
+.notice {
+  margin: 0 0 var(--sp-4); padding: .6rem .8rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft); border: 1px solid var(--accent-ring);
+  color: var(--accent-ink);
+  font-size: .875rem;
+}
 .ok {
   margin: 0 0 var(--sp-2); padding: .7rem .9rem;
   border-radius: var(--radius-sm);

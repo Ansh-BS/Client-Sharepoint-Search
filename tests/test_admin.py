@@ -1,9 +1,11 @@
 import logging
 import re
+import time
 
 import pytest
 
-from storage import load_clients, save_clients
+import app
+from storage import load_clients, load_pending, save_clients
 
 
 def preview(client, path):
@@ -446,3 +448,92 @@ def test_confirmed_replace_is_logged_with_the_username(admin, data_path,
     assert "ADMIN replace" in caplog.text
     assert "adminuser" in caplog.text
     assert "clients=2" in caplog.text
+
+
+# --- admin idle re-lock ----------------------------------------------------
+
+def _age_admin_session(client, seconds):
+    """Backdate the admin session's last-seen stamp by `seconds`."""
+    with client.session_transaction() as sess:
+        sess["admin_at"] = time.time() - seconds
+
+
+def test_admin_survives_a_short_gap(admin, data_path):
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS - 60)
+    assert admin.get("/admin").status_code == 200
+
+
+def test_admin_relocks_after_the_idle_window(admin, data_path):
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS + 1)
+    resp = admin.get("/admin")
+    assert resp.status_code == 302
+    assert "/admin/unlock" in resp.headers["Location"]
+    assert "timeout=1" in resp.headers["Location"]
+
+
+def test_relock_clears_the_admin_half_of_the_session(admin, data_path):
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS + 1)
+    admin.get("/admin")
+    with admin.session_transaction() as sess:
+        assert "admin" not in sess
+        assert "admin_user" not in sess
+        assert "admin_at" not in sess
+
+
+def test_staff_login_survives_an_admin_relock(admin, data_path):
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS + 1)
+    admin.get("/admin")
+    assert admin.get("/").status_code == 200  # still signed in to search
+
+
+def test_every_admin_request_pushes_the_clock_forward(admin, data_path):
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS - 60)
+    admin.get("/admin")
+    with admin.session_transaction() as sess:
+        assert time.time() - sess["admin_at"] < 5
+
+
+def test_relock_discards_a_staged_upload(admin, data_path, make_xlsx,
+                                         tmp_path):
+    path = make_xlsx(tmp_path / "c.xlsx", [("A1", "Acme Ltd", None)])
+    with open(path, "rb") as fh:
+        admin.post("/admin", data={"file": (fh, "c.xlsx")},
+                   content_type="multipart/form-data")
+    with admin.session_transaction() as sess:
+        token = sess["pending_upload"]
+    assert load_pending(token) is not None
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS + 1)
+    admin.get("/admin")
+    assert load_pending(token) is None
+    with admin.session_transaction() as sess:
+        assert "pending_upload" not in sess
+
+
+def test_relock_discards_a_pending_add(admin, data_path):
+    admin.post("/admin", data={"action": "add_client",
+                               "client_name": "Acme Ltd", "client_id": "A1"})
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS + 1)
+    admin.get("/admin")
+    with admin.session_transaction() as sess:
+        assert "pending_action" not in sess
+
+
+def test_relock_is_logged(admin, data_path, caplog):
+    _age_admin_session(admin, app.ADMIN_IDLE_SECONDS + 1)
+    with caplog.at_level(logging.INFO):
+        admin.get("/admin")
+    assert "ADMIN auto-lock" in caplog.text
+    assert "adminuser" in caplog.text
+
+
+def test_unlock_page_explains_a_timeout(logged_in):
+    resp = logged_in.get("/admin/unlock?timeout=1")
+    assert b"inactivity" in resp.data
+    # The wording follows the constant, so the two can't drift apart.
+    assert f"{app.ADMIN_IDLE_SECONDS // 60} minutes".encode() in resp.data
+
+
+def test_unlock_page_says_nothing_about_a_timeout_normally(logged_in):
+    resp = logged_in.get("/admin/unlock")
+    assert b"inactivity" not in resp.data
+
