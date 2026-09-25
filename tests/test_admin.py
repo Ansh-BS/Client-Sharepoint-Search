@@ -334,6 +334,29 @@ def test_delete_client_by_name(admin, data_path):
     assert load_clients(data_path) == []
 
 
+def test_confirming_a_removal_only_ever_removes_what_was_previewed(admin,
+                                                                   data_path):
+    """The preview promises "this client will stop being findable".
+
+    Two clients can share a name — PRODUCT.md calls that out — so a query is
+    not an identity. Re-running the query at confirm time means that if the
+    list moves underneath the preview, the row that gets deleted is not the
+    row the admin was shown and agreed to.
+    """
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": None},
+                  {"id": "A2", "name": "Acme Ltd", "link": None}], data_path)
+    preview_delete(admin, "Acme Ltd")          # resolves to A1, the first match
+
+    # While the preview sits on screen, A1 goes — a second admin, or an upload.
+    save_clients([{"id": "A2", "name": "Acme Ltd", "link": None}], data_path)
+
+    resp = confirm_delete(admin)
+
+    assert [c["id"] for c in load_clients(data_path)] == ["A2"], (
+        "confirming a preview of A1 removed A2, which was never previewed")
+    assert b"no longer in the list" in resp.data
+
+
 def test_delete_client_not_found(admin, data_path):
     save_clients([{"id": "N1", "name": "New Client", "link": None}], data_path)
     resp = preview_delete(admin, "Nope")
