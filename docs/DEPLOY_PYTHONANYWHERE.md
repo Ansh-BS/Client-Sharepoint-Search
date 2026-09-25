@@ -89,13 +89,19 @@ Copy the long hex string it prints. Then create the file:
     cd ~/<project-folder-name>
     nano .env
 
-Paste in these three lines, replacing every `<...>` with your real values
+Paste in these lines, replacing every `<...>` with your real values
 (the `SECRET_KEY` value is the hex string you just generated):
 
     SECRET_KEY=<paste-the-generated-hex-key-here>
     STAFF_PASSWORD=<choose-your-own-staff-login-password>
     ADMIN_USERNAMES=<name-one>,<name-two>,<name-three>
     ADMIN_PASSWORD=<choose-a-different-admin-upload-password>
+
+Nothing else is needed here. In particular you do **not** set `TRUST_PROXY`:
+PythonAnywhere runs your app behind a load balancer, and the app works that
+out for itself from the address the balancer connects on. Step 6b below
+confirms it did. (The one case for setting it is `TRUST_PROXY=0`, if you
+ever run this somewhere staff reach it directly with no proxy in front.)
 
 Make `STAFF_PASSWORD` (the search-page login) and `ADMIN_PASSWORD` (the
 extra password to upload a spreadsheet) different from each other. Save in
@@ -152,6 +158,26 @@ step 3.
 If you instead get an error page, open the Web tab's **Error log** link —
 the most common causes are a wrong path in the WSGI file, the virtualenv
 field not matching the Python version, or a missing line in `.env`.
+
+## 6b. Confirm the app can see who is calling
+
+Do this after the first successful login, and again after any deploy that
+changes how the site is reached. It is the only way to know the app is seeing
+real visitors — nothing on the page changes either way, so an app that is
+still seeing only the load balancer looks perfectly healthy while its rate
+limiter treats every visitor on earth as one person.
+
+1. Go to `/admin` and unlock it with your name and the admin password.
+2. Open the **Web** tab and click your site's **Error log**.
+3. Find the newest line beginning `ADMIN unlock ok`. It ends with `ip=<addr>`.
+
+What that address should be: your own office's public address — the one
+[whatismyip.com](https://www.whatismyip.com/) shows you. If it is instead a
+private address (starting `10.`, `192.168.`, or `172.16.`–`172.31.`), the app
+is logging the balancer rather than the visitor. Check that `.env` does not
+contain `TRUST_PROXY=0`, and that you have clicked **Reload** since the last
+`git pull`. Until this line shows a real address, the rate limiter is treating
+every visitor in the world as one person.
 
 ## 7. Upload the real client data
 
@@ -233,3 +259,7 @@ back with the data intact.
 Then click **Reload** on the Web tab. That's the whole loop — no build
 step, no pipeline needed for a low-traffic internal tool. (If you deployed
 via the zip method, "update" means re-uploading a fresh zip and reloading.)
+
+After a pull that changed `app.py` or `.env`, redo the one-minute check in
+step 6b. It is the only signal that the app is still seeing real visitors
+rather than the load balancer, and it fails silently if it ever regresses.

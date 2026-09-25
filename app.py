@@ -1,5 +1,6 @@
 """Client SharePoint Search — Flask app (port 5001)."""
 import hmac
+import ipaddress
 import logging
 import os
 import secrets
@@ -54,7 +55,94 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = (
     os.getenv("SESSION_COOKIE_SECURE", "true").strip().lower() != "false")
 
-limiter = Limiter(get_remote_address, app=app, default_limits=[],
+# Whether to believe the forwarding headers that say who the caller really is.
+#   "auto" (default) — decide per request from the peer address, see below
+#   1/true/yes/on     — always believe them
+#   0/false/no/off    — never believe them
+# Set this to 0 for any deployment where the app is reachable directly by the
+# people using it (an office LAN box with no proxy): there their peer address is
+# private, auto would believe them, and anyone could mint a fresh address per
+# request and walk past the rate limiter.
+def _trust_mode(raw):
+    """Normalise the TRUST_PROXY setting; absent or blank means "auto"."""
+    return (raw or "").strip().lower() or "auto"
+
+
+TRUST_PROXY = _trust_mode(os.getenv("TRUST_PROXY"))
+
+# Longest a real address can be written out: an IPv4-mapped IPv6 address with a
+# zone id. The value below becomes a rate-limit key kept in memory and a field
+# in every audit line, and it is attacker-chosen, so it gets a ceiling.
+_MAX_ADDR_LEN = 45
+
+
+def _proxy_in_front():
+    """Whether this request reached us through a proxy we believe."""
+    if TRUST_PROXY in ("1", "true", "yes", "on"):
+        return True
+    if TRUST_PROXY in ("0", "false", "no", "off"):
+        return False
+    # "auto". Nothing on the public internet can present a private or loopback
+    # peer address — that is a property of routing, not a claim in a header — so
+    # a private peer means something local handed us the request. On
+    # PythonAnywhere that is always true: the load balancer presents as 10.x.
+    # A caller arriving straight off the internet has a public peer address, and
+    # their headers are ignored.
+    peer = request.remote_addr
+    if not peer:
+        return False
+    try:
+        addr = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+    # is_global is the exact question: could this address have been the source
+    # of a packet routed to us across the public internet? Private, loopback and
+    # reserved ranges all answer no, and only those can mean a local hop.
+    return not addr.is_global
+
+
+def _last_hop(value):
+    """The rightmost non-empty comma-separated segment of a header, clipped.
+
+    WSGI merges repeated headers into one comma-joined value, and an appending
+    proxy adds what it actually saw at the end. So whether the caller sent their
+    own copy of the header or the proxy appended to theirs, the last segment is
+    the only one a proxy vouched for. Reading the first would read whatever the
+    caller chose to write.
+    """
+    for hop in reversed(value.split(",")):
+        hop = hop.strip()
+        if hop:
+            return hop[:_MAX_ADDR_LEN]
+    return ""
+
+
+def client_ip():
+    """The caller's address, as well as this deployment can know it.
+
+    PythonAnywhere load-balances web apps, so ``request.remote_addr`` is the
+    balancer: one constant value for every visitor. Used as a rate-limit key it
+    puts the whole firm in a single bucket, so one person mistyping a password
+    locks out the office; written to the audit log it says nothing at all. The
+    balancer puts the real caller in ``X-Real-IP``.
+
+    Assumes exactly one trusted hop. If a second proxy is ever put in front
+    (Cloudflare ahead of PythonAnywhere, say), the last hop becomes the inner
+    balancer and this returns a constant again — the original bug, silently.
+    """
+    if _proxy_in_front():
+        real = _last_hop(request.headers.get("X-Real-IP", ""))
+        if real:
+            return real
+        # For a proxy that sets only X-Forwarded-For.
+        fwd = _last_hop(request.headers.get("X-Forwarded-For", ""))
+        if fwd:
+            return fwd
+    # Never empty: an empty key would pool every caller into one bucket again.
+    return get_remote_address()[:_MAX_ADDR_LEN]
+
+
+limiter = Limiter(client_ip, app=app, default_limits=[],
                    storage_uri="memory://")
 
 # Cache-busting tag for the CSS and JS under static/. Browsers reuse a cached
@@ -110,7 +198,7 @@ def _loggable(value):
 def _audit(message, *args):
     app.logger.info("ADMIN " + message + " user=%s ip=%s", *args,
                     _loggable(session.get("admin_user", "?")),
-                    get_remote_address())
+                    client_ip())
 
 
 def staff_required(view):
@@ -159,7 +247,20 @@ def admin_required(view):
 
 
 @app.route("/login", methods=["GET", "POST"])
-@limiter.limit("10 per 15 minutes", methods=["POST"])
+# Sized for a shared address, not for one person: staff reach this through a
+# single office internet connection, so every failure any of them makes lands in
+# the same bucket. Ten across ten people is an outage waiting for a typo.
+#
+# deduct_when charges only failures. A brute-force brake that also bills correct
+# logins is the same defect in miniature — ten people signing in at nine o'clock
+# would spend a third of the office's allowance before anyone mistyped anything.
+# A redirect is this app's success response on both routes.
+#
+# Thirty failures per fifteen minutes is roughly 2,900 a day per address — but
+# per worker process, and reset by any app reload, since the limiter stores its
+# counters in memory. A brake on guessing, not a hard ceiling.
+@limiter.limit("30 per 15 minutes", methods=["POST"],
+               deduct_when=lambda response: response.status_code != 302)
 def login():
     error = None
     if request.method == "POST":
@@ -225,7 +326,20 @@ def _find_by_query(clients, query):
 
 
 @app.route("/admin/unlock", methods=["GET", "POST"])
-@limiter.limit("10 per 15 minutes", methods=["POST"])
+# Sized for a shared address, not for one person: staff reach this through a
+# single office internet connection, so every failure any of them makes lands in
+# the same bucket. Ten across ten people is an outage waiting for a typo.
+#
+# deduct_when charges only failures. A brute-force brake that also bills correct
+# logins is the same defect in miniature — ten people signing in at nine o'clock
+# would spend a third of the office's allowance before anyone mistyped anything.
+# A redirect is this app's success response on both routes.
+#
+# Thirty failures per fifteen minutes is roughly 2,900 a day per address — but
+# per worker process, and reset by any app reload, since the limiter stores its
+# counters in memory. A brake on guessing, not a hard ceiling.
+@limiter.limit("30 per 15 minutes", methods=["POST"],
+               deduct_when=lambda response: response.status_code != 302)
 @staff_required
 def admin_unlock():
     error = None
@@ -243,10 +357,10 @@ def admin_unlock():
             session["admin_user"] = matched
             session["admin_at"] = time.time()
             app.logger.info("ADMIN unlock ok user=%s ip=%s",
-                            _loggable(matched), get_remote_address())
+                            _loggable(matched), client_ip())
             return redirect(url_for("admin"))
         app.logger.info("ADMIN unlock FAILED user=%s ip=%s",
-                        _loggable(submitted), get_remote_address())
+                        _loggable(submitted), client_ip())
         error = "Wrong admin username or password."
     return render_template("admin_unlock.html", error=error,
                            timed_out=request.args.get("timeout") == "1",

@@ -34,6 +34,18 @@ skipped; rows without a hyperlink show a "No link on file" badge.
 
 ## Notes
 
+- Rate limiting and the audit log key on `client_ip()`, not on
+  `request.remote_addr`. PythonAnywhere load-balances web apps, so
+  `remote_addr` is the balancer's address for every visitor — as a
+  rate-limit key that puts the whole firm in one bucket, and in the audit
+  log it records nothing. `TRUST_PROXY` selects whether the proxy's
+  `X-Real-IP` is believed; it defaults to `auto`, which decides per
+  request from whether the connecting address could have come off the
+  public internet. Set `TRUST_PROXY=0` only where staff reach the app
+  directly with no proxy in front.
+- The auth limits (`30 per 15 minutes` on `/login` and `/admin/unlock`)
+  charge failures only, and are sized for a whole office behind one
+  public address rather than for one person.
 - Data lives in `data/clients.json` (gitignored — client data never
   committed). Uploads replace it atomically; a bad upload leaves the
   old data untouched.
