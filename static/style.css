@@ -580,7 +580,10 @@ button:disabled { background: var(--action-disabled); color: var(--action-disabl
 /* Password reveal. The field owns the spacing so the input can sit flush
    against the button without either one moving when the icon swaps. */
 .field { position: relative; margin-bottom: var(--sp-4); }
-.field input { margin-bottom: 0; padding-right: 2.9rem; }
+.field input { margin-bottom: 0; }
+/* Only a field with a reveal button needs the room; a plain one (the admin
+   username) keeps the standard padding and still matches box-for-box. */
+.field:has(button.reveal) input { padding-right: 2.9rem; }
 
 /* Overrides the full-width primary button above: this one is a quiet control
    sitting inside the field, not an action competing with "Log in". */
