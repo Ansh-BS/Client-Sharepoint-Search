@@ -28,12 +28,26 @@ Add `flask-limiter` to `requirements.txt`. In `app.py`:
 - `Limiter(key_func=get_remote_address, default_limits=[])` — empty default so
   only decorated routes throttle, matching chatbot's pattern.
 - `@limiter.limit("10 per 15 minutes", methods=["POST"])` on `/login`.
+  (Raised to 30 on 2026-09-25 — staff share one office address, so ten
+  attempts is a firm-wide allowance, not a per-person one.)
 - `@limiter.limit("10 per 15 minutes", methods=["POST"])` on `/admin` (the
   admin-password check on file upload — same brute-force shape as login).
 - No `ProxyFix` — this app runs directly (no reverse proxy in front today);
   adding it now would be speculative and, if ever wrong, would let an
   attacker spoof `X-Forwarded-For` to bypass the limiter. Skip until the app
   is actually deployed behind a proxy.
+
+  > **SUPERSEDED 2026-09-25.** The premise expired: the app was deployed to
+  > PythonAnywhere, which load-balances web apps, so `get_remote_address` now
+  > returns the balancer for every request — the limiter pooled the whole firm
+  > into one bucket and the audit log recorded one constant address. The
+  > reasoning above still stands and is why the replacement is opt-in rather
+  > than unconditional: `app.client_ip()` reads the forwarding headers only
+  > when `TRUST_PROXY` is set, which is off by default and set solely on the
+  > server. It reads PythonAnywhere's documented `X-Real-IP` rather than using
+  > `ProxyFix`, and falls back to the rightmost `X-Forwarded-For` hop, never
+  > the caller-chosen leftmost one. See
+  > `docs/superpowers/plans/2026-09-25-client-ip-behind-proxy.md`.
 
 ### 2. Security headers
 

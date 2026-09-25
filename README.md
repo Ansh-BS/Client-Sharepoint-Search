@@ -34,6 +34,12 @@ skipped; rows without a hyperlink show a "No link on file" badge.
 
 ## Notes
 
+- `TRUST_PROXY=1` must be set in the server's `.env`. PythonAnywhere
+  load-balances web apps, so without it the app sees the balancer's
+  address as every visitor's: the rate limiter puts the whole firm in
+  one bucket and the admin audit log records one meaningless address.
+  Leave it unset locally, where the forwarding headers are whatever the
+  caller chose to send.
 - Data lives in `data/clients.json` (gitignored — client data never
   committed). Uploads replace it atomically; a bad upload leaves the
   old data untouched.

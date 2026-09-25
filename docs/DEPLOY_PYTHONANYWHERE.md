@@ -89,13 +89,28 @@ Copy the long hex string it prints. Then create the file:
     cd ~/<project-folder-name>
     nano .env
 
-Paste in these three lines, replacing every `<...>` with your real values
+Paste in these lines, replacing every `<...>` with your real values
 (the `SECRET_KEY` value is the hex string you just generated):
 
     SECRET_KEY=<paste-the-generated-hex-key-here>
     STAFF_PASSWORD=<choose-your-own-staff-login-password>
     ADMIN_USERNAMES=<name-one>,<name-two>,<name-three>
     ADMIN_PASSWORD=<choose-a-different-admin-upload-password>
+    TRUST_PROXY=1
+
+`TRUST_PROXY=1` is not optional here, and it is the one line that is
+correct on the server and wrong on your own PC. PythonAnywhere runs your
+app behind a load balancer, so the address the app sees for every single
+visitor is the balancer's, not theirs. Without this line the rate limiter
+treats the whole world as one visitor — one person mistyping the staff
+password enough times locks out everybody — and every line in the admin
+audit log records the same meaningless address. With it, the app reads the
+caller from the `X-Real-IP` header the balancer sets.
+
+Do **not** set it anywhere the app is reachable directly. There, that
+header is just something the caller typed, and honouring it would let
+anyone claim a fresh address on every request and bypass the limiter
+entirely.
 
 Make `STAFF_PASSWORD` (the search-page login) and `ADMIN_PASSWORD` (the
 extra password to upload a spreadsheet) different from each other. Save in
@@ -152,6 +167,25 @@ step 3.
 If you instead get an error page, open the Web tab's **Error log** link —
 the most common causes are a wrong path in the WSGI file, the virtualenv
 field not matching the Python version, or a missing line in `.env`.
+
+## 6b. Confirm the app can see who is calling
+
+Do this once, right after the first successful login. It is the only way to
+know `TRUST_PROXY` actually took effect — nothing on the page changes either
+way, so an app that is still seeing the balancer looks perfectly healthy.
+
+1. Go to `/admin` and unlock it with your name and the admin password.
+2. Open the **Web** tab and click your site's **Error log**.
+3. Find the newest line beginning `ADMIN unlock ok`. It ends with `ip=<addr>`.
+
+What that address should be: your own office's public address — the one
+[whatismyip.com](https://www.whatismyip.com/) shows you. If it is instead a
+private address (starting `10.`, `192.168.`, or `172.16.`–`172.31.`), the app
+is still logging the balancer: `TRUST_PROXY=1` is missing from `.env`, or the
+`.env` you edited is not the one the Working directory points at, or you have
+not clicked **Reload** since adding it. Fix it and check the log again — until
+this line shows a real address, the rate limiter is treating every visitor in
+the world as one person.
 
 ## 7. Upload the real client data
 
