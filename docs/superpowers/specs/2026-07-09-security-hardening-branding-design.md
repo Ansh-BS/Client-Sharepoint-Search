@@ -41,12 +41,16 @@ Add `flask-limiter` to `requirements.txt`. In `app.py`:
   > PythonAnywhere, which load-balances web apps, so `get_remote_address` now
   > returns the balancer for every request — the limiter pooled the whole firm
   > into one bucket and the audit log recorded one constant address. The
-  > reasoning above still stands and is why the replacement is opt-in rather
-  > than unconditional: `app.client_ip()` reads the forwarding headers only
-  > when `TRUST_PROXY` is set, which is off by default and set solely on the
-  > server. It reads PythonAnywhere's documented `X-Real-IP` rather than using
-  > `ProxyFix`, and falls back to the rightmost `X-Forwarded-For` hop, never
-  > the caller-chosen leftmost one. See
+  > reasoning above still stands, and is why `app.client_ip()` does not simply
+  > believe the headers: it believes them only when the request arrived from an
+  > address that could not have come off the public internet (`TRUST_PROXY`
+  > defaults to `auto`; `0` and `1` force the decision). A spoofing caller on
+  > the internet has a globally-routable peer address by construction, so their
+  > headers are ignored — which closes the same hole as opt-in would, without
+  > leaving the deployed server broken pending a manual `.env` edit. It reads
+  > PythonAnywhere's documented `X-Real-IP` rather than using `ProxyFix`, and
+  > takes the rightmost hop of either header, never the caller-chosen leftmost
+  > one. See
   > `docs/superpowers/plans/2026-09-25-client-ip-behind-proxy.md`.
 
 ### 2. Security headers

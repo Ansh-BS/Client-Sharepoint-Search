@@ -20,13 +20,13 @@ admin page — the site reads the names, IDs, and folder links from it.
   any outside company or service.
 - **Nothing runs from outside sources.** The page loads only its own
   files — no third-party code, adverts, or trackers that could leak data.
-- **Brute-force protection.** If someone tries to guess the password
-  over and over, the site stops accepting attempts from their internet
-  connection for fifteen minutes. Worth knowing: everyone in the office
-  shares one internet connection, so the office shares one allowance —
-  it is set high enough (thirty tries) that normal mistyping will never
-  reach it, but a colleague hammering a wrong password repeatedly can
-  briefly hold the door shut for everyone. Wait fifteen minutes.
+- **Brute-force protection.** Thirty *wrong* passwords from the same
+  internet connection and the site stops accepting attempts from it for
+  up to fifteen minutes. Logging in correctly never counts against that,
+  however often you do it. Worth knowing: everyone in the office shares
+  one internet connection, so the office shares one allowance — a
+  colleague hammering a wrong password over and over can briefly hold the
+  door shut for everyone. If that happens, wait and try again.
 - **Secure sessions.** Once you log in, your session is protected so it
   can't be hijacked or read by other software on your machine.
 - **Safe updates.** When a new spreadsheet is uploaded, the old list is

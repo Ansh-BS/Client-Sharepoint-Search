@@ -96,21 +96,12 @@ Paste in these lines, replacing every `<...>` with your real values
     STAFF_PASSWORD=<choose-your-own-staff-login-password>
     ADMIN_USERNAMES=<name-one>,<name-two>,<name-three>
     ADMIN_PASSWORD=<choose-a-different-admin-upload-password>
-    TRUST_PROXY=1
 
-`TRUST_PROXY=1` is not optional here, and it is the one line that is
-correct on the server and wrong on your own PC. PythonAnywhere runs your
-app behind a load balancer, so the address the app sees for every single
-visitor is the balancer's, not theirs. Without this line the rate limiter
-treats the whole world as one visitor — one person mistyping the staff
-password enough times locks out everybody — and every line in the admin
-audit log records the same meaningless address. With it, the app reads the
-caller from the `X-Real-IP` header the balancer sets.
-
-Do **not** set it anywhere the app is reachable directly. There, that
-header is just something the caller typed, and honouring it would let
-anyone claim a fresh address on every request and bypass the limiter
-entirely.
+Nothing else is needed here. In particular you do **not** set `TRUST_PROXY`:
+PythonAnywhere runs your app behind a load balancer, and the app works that
+out for itself from the address the balancer connects on. Step 6b below
+confirms it did. (The one case for setting it is `TRUST_PROXY=0`, if you
+ever run this somewhere staff reach it directly with no proxy in front.)
 
 Make `STAFF_PASSWORD` (the search-page login) and `ADMIN_PASSWORD` (the
 extra password to upload a spreadsheet) different from each other. Save in
@@ -170,9 +161,11 @@ field not matching the Python version, or a missing line in `.env`.
 
 ## 6b. Confirm the app can see who is calling
 
-Do this once, right after the first successful login. It is the only way to
-know `TRUST_PROXY` actually took effect — nothing on the page changes either
-way, so an app that is still seeing the balancer looks perfectly healthy.
+Do this after the first successful login, and again after any deploy that
+changes how the site is reached. It is the only way to know the app is seeing
+real visitors — nothing on the page changes either way, so an app that is
+still seeing only the load balancer looks perfectly healthy while its rate
+limiter treats every visitor on earth as one person.
 
 1. Go to `/admin` and unlock it with your name and the admin password.
 2. Open the **Web** tab and click your site's **Error log**.
@@ -181,11 +174,10 @@ way, so an app that is still seeing the balancer looks perfectly healthy.
 What that address should be: your own office's public address — the one
 [whatismyip.com](https://www.whatismyip.com/) shows you. If it is instead a
 private address (starting `10.`, `192.168.`, or `172.16.`–`172.31.`), the app
-is still logging the balancer: `TRUST_PROXY=1` is missing from `.env`, or the
-`.env` you edited is not the one the Working directory points at, or you have
-not clicked **Reload** since adding it. Fix it and check the log again — until
-this line shows a real address, the rate limiter is treating every visitor in
-the world as one person.
+is logging the balancer rather than the visitor. Check that `.env` does not
+contain `TRUST_PROXY=0`, and that you have clicked **Reload** since the last
+`git pull`. Until this line shows a real address, the rate limiter is treating
+every visitor in the world as one person.
 
 ## 7. Upload the real client data
 
@@ -267,3 +259,7 @@ back with the data intact.
 Then click **Reload** on the Web tab. That's the whole loop — no build
 step, no pipeline needed for a low-traffic internal tool. (If you deployed
 via the zip method, "update" means re-uploading a fresh zip and reloading.)
+
+After a pull that changed `app.py` or `.env`, redo the one-minute check in
+step 6b. It is the only signal that the app is still seeing real visitors
+rather than the load balancer, and it fails silently if it ever regresses.
