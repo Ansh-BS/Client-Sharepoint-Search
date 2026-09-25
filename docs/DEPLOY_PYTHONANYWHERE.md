@@ -75,8 +75,8 @@ that path, you'll paste it in step 4.
 
 ## 3. Create the real `.env` file on the server
 
-The app refuses to start without `SECRET_KEY`, `STAFF_PASSWORD`, and
-`ADMIN_PASSWORD`. You create these directly on the server and fill in your
+The app refuses to start without `SECRET_KEY`, `STAFF_PASSWORD`,
+`ADMIN_USERNAME`, and `ADMIN_PASSWORD`. You create these directly on the server and fill in your
 **own** real values. This document never sees or sets them — you type your
 own secrets into your own server's file.
 
@@ -94,6 +94,7 @@ Paste in these three lines, replacing every `<...>` with your real values
 
     SECRET_KEY=<paste-the-generated-hex-key-here>
     STAFF_PASSWORD=<choose-your-own-staff-login-password>
+    ADMIN_USERNAME=<choose-the-admin-username>
     ADMIN_PASSWORD=<choose-a-different-admin-upload-password>
 
 Make `STAFF_PASSWORD` (the search-page login) and `ADMIN_PASSWORD` (the
@@ -159,8 +160,8 @@ app's own admin screen — exactly like using it locally:
 
 1. Log in at `/` with your `STAFF_PASSWORD`.
 2. Go to `/admin`.
-3. Enter your `ADMIN_PASSWORD` and choose your real client spreadsheet
-   (`.xlsx`).
+3. Enter your `ADMIN_USERNAME` and `ADMIN_PASSWORD`, then choose your real
+   client spreadsheet (`.xlsx`).
 4. Upload. It parses and saves; you'll see a count and any rows missing a
    link.
 
@@ -186,7 +187,7 @@ field mismatch on the Web tab — re-check **Source code** / **Working
 directory** / **Virtualenv**, then Reload again.
 
 **`SystemExit: Missing required .env values: SECRET_KEY, STAFF_PASSWORD,
-ADMIN_PASSWORD`** (this is what the command above will print if `.env` isn't
+ADMIN_USERNAME, ADMIN_PASSWORD`** (this is what the command above will print if `.env` isn't
 being picked up). Two likely causes, check in order:
 
 1. **`.env` isn't in the project folder.** The app loads it from the

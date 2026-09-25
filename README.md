@@ -9,8 +9,9 @@ fuzzy-matched suggestions with a button to the client's SharePoint folder.
 
 Serves on http://127.0.0.1:5001 (benison-chatbot uses 5000).
 Needs `.env` (copy `.env.example`): `SECRET_KEY`, `STAFF_PASSWORD`
-(login for the search page), `ADMIN_PASSWORD` (extra password for
-uploading a new spreadsheet on /admin).
+(login for the search page), `ADMIN_USERNAME` and `ADMIN_PASSWORD` (the
+second credential pair that unlocks /admin). The search-page login asks
+for the staff password only — no username.
 
 ## Update the client list
 

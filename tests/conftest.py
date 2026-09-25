@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("STAFF_PASSWORD", "staffpw")
+os.environ.setdefault("ADMIN_USERNAME", "adminuser")
 os.environ.setdefault("ADMIN_PASSWORD", "adminpw")
 os.environ.setdefault("SESSION_COOKIE_SECURE", "false")
 
@@ -58,5 +59,6 @@ def logged_in(client):
 @pytest.fixture
 def admin(logged_in):
     """Staff-logged-in client that has also unlocked the admin page."""
-    logged_in.post("/admin/unlock", data={"password": "adminpw"})
+    logged_in.post("/admin/unlock",
+                   data={"username": "adminuser", "password": "adminpw"})
     return logged_in

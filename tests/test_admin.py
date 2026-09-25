@@ -47,20 +47,53 @@ def test_admin_requires_unlock(logged_in, data_path):
 def test_unlock_page_shown_to_staff(logged_in):
     resp = logged_in.get("/admin/unlock")
     assert resp.status_code == 200
+    assert b"Admin username" in resp.data
     assert b"Admin password" in resp.data
 
 
-def test_unlock_correct_password_grants_access(logged_in, data_path):
-    resp = logged_in.post("/admin/unlock", data={"password": "adminpw"})
+def test_unlock_correct_credentials_grant_access(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock",
+                          data={"username": "adminuser", "password": "adminpw"})
     assert resp.status_code == 302
     assert "/admin" in resp.headers["Location"]
     assert logged_in.get("/admin").status_code == 200
 
 
+def test_unlock_username_ignores_case_and_surrounding_space(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock",
+                          data={"username": "  AdminUser ",
+                                "password": "adminpw"})
+    assert resp.status_code == 302
+    assert logged_in.get("/admin").status_code == 200
+
+
 def test_unlock_wrong_password_rejected(logged_in, data_path):
-    resp = logged_in.post("/admin/unlock", data={"password": "nope"})
-    assert b"Wrong admin password" in resp.data
+    resp = logged_in.post("/admin/unlock",
+                          data={"username": "adminuser", "password": "nope"})
+    assert b"Wrong admin username or password" in resp.data
     assert logged_in.get("/admin").status_code == 302  # still locked
+
+
+def test_unlock_wrong_username_rejected(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock",
+                          data={"username": "someoneelse",
+                                "password": "adminpw"})
+    assert b"Wrong admin username or password" in resp.data
+    assert logged_in.get("/admin").status_code == 302
+
+
+def test_unlock_missing_username_rejected(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock", data={"password": "adminpw"})
+    assert b"Wrong admin username or password" in resp.data
+    assert logged_in.get("/admin").status_code == 302
+
+
+def test_unlock_error_does_not_say_which_field_was_wrong(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock",
+                          data={"username": "adminuser", "password": "nope"})
+    body = resp.data.lower()
+    assert b"wrong admin password" not in body
+    assert b"wrong admin username." not in body
 
 
 def test_unlock_requires_staff_login(client):

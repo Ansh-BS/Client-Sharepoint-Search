@@ -16,7 +16,8 @@ from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
 
-_missing = [k for k in ("SECRET_KEY", "STAFF_PASSWORD", "ADMIN_PASSWORD")
+_missing = [k for k in ("SECRET_KEY", "STAFF_PASSWORD", "ADMIN_USERNAME",
+                        "ADMIN_PASSWORD")
             if not os.getenv(k)]
 if _missing:
     raise SystemExit(f"Missing required .env values: {', '.join(_missing)}")
@@ -162,11 +163,19 @@ def _find_by_query(clients, query):
 def admin_unlock():
     error = None
     if request.method == "POST":
-        if hmac.compare_digest(request.form.get("password", ""),
-                               os.getenv("ADMIN_PASSWORD")):
+        # Both checks run before either is acted on, so a wrong username and a
+        # wrong password cost the same work and the error below can't tell an
+        # attacker which half they got right. The username is matched
+        # case-insensitively and trimmed -- the password is the secret here.
+        user_ok = hmac.compare_digest(
+            request.form.get("username", "").strip().casefold(),
+            os.getenv("ADMIN_USERNAME").strip().casefold())
+        password_ok = hmac.compare_digest(request.form.get("password", ""),
+                                          os.getenv("ADMIN_PASSWORD"))
+        if user_ok and password_ok:
             session["admin"] = True
             return redirect(url_for("admin"))
-        error = "Wrong admin password."
+        error = "Wrong admin username or password."
     return render_template("admin_unlock.html", error=error)
 
 

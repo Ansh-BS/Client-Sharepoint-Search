@@ -52,7 +52,8 @@ No new packages were added, so you do **not** need to re-run `pip install`.
 Leave these alone. They live only on the server and hold your real data and
 secrets:
 
-- **`.env`** — your `SECRET_KEY`, `STAFF_PASSWORD`, `ADMIN_PASSWORD`.
+- **`.env`** — your `SECRET_KEY`, `STAFF_PASSWORD`, `ADMIN_USERNAME`,
+  `ADMIN_PASSWORD`.
   Overwriting it takes the site down.
 - **`data/clients.json`** — the real client list you uploaded through
   `/admin`. This is the live data. Nothing in this update changes it.

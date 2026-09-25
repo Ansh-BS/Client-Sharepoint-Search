@@ -19,6 +19,19 @@ def test_right_password_logs_in(client):
     assert b"search" in resp.data.lower()
 
 
+def test_login_page_has_no_username_field(client):
+    resp = client.get("/login")
+    assert b"username" not in resp.data.lower()
+
+
+def test_login_needs_password_only(client):
+    """The admin gate asks for a username; the staff login must not."""
+    resp = client.post("/login", data={"password": "staffpw"},
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"search" in resp.data.lower()
+
+
 def test_api_unauthenticated_gets_401_json(client):
     resp = client.get("/api/clients")
     assert resp.status_code == 401
