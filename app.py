@@ -457,7 +457,10 @@ def admin():
                     error = f'No client matches "{query}".'
                 else:
                     found = clients[idx]
-                    pending = {"kind": "delete", "query": query,
+                    # Pin the client itself, not the query that found it. The
+                    # query is how the admin reached this row; what they are
+                    # shown and agree to is the row.
+                    pending = {"kind": "delete",
                               "id": found.get("id"), "name": found["name"],
                               "link": found.get("link")}
                     session["pending_action"] = pending
@@ -469,9 +472,14 @@ def admin():
                 error = "That preview expired. Remove the client again."
             else:
                 clients = load_clients()
-                idx = _find_by_query(clients, pending["query"])
+                # Resolve the pinned client, never the original query. Two
+                # clients can share a name, so re-running the query here could
+                # land on a different row if the list moved while the preview
+                # was on screen — and delete something nobody was shown.
+                idx = _find_by_key(clients, pending.get("id"), pending["name"])
                 if idx is None:
-                    error = f'No client matches "{pending["query"]}".'
+                    error = (f'{pending["name"]} is no longer in the list — '
+                             "nothing was removed.")
                 else:
                     removed = clients.pop(idx)
                     save_clients(clients)
