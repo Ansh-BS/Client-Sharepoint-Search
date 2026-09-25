@@ -89,7 +89,7 @@ def client_ip():
     return get_remote_address()
 
 
-limiter = Limiter(get_remote_address, app=app, default_limits=[],
+limiter = Limiter(client_ip, app=app, default_limits=[],
                    storage_uri="memory://")
 
 # Cache-busting tag for the CSS and JS under static/. Browsers reuse a cached
@@ -145,7 +145,7 @@ def _loggable(value):
 def _audit(message, *args):
     app.logger.info("ADMIN " + message + " user=%s ip=%s", *args,
                     _loggable(session.get("admin_user", "?")),
-                    get_remote_address())
+                    client_ip())
 
 
 def staff_required(view):
@@ -194,7 +194,11 @@ def admin_required(view):
 
 
 @app.route("/login", methods=["GET", "POST"])
-@limiter.limit("10 per 15 minutes", methods=["POST"])
+# Sized for a shared address, not for one person: staff reach this through a
+# single office internet connection, so every failure any of them makes lands in
+# the same bucket. Ten across ten people is an outage waiting for a typo. Thirty
+# still caps online guessing at roughly 2,900 tries a day against one password.
+@limiter.limit("30 per 15 minutes", methods=["POST"])
 def login():
     error = None
     if request.method == "POST":
@@ -260,7 +264,11 @@ def _find_by_query(clients, query):
 
 
 @app.route("/admin/unlock", methods=["GET", "POST"])
-@limiter.limit("10 per 15 minutes", methods=["POST"])
+# Sized for a shared address, not for one person: staff reach this through a
+# single office internet connection, so every failure any of them makes lands in
+# the same bucket. Ten across ten people is an outage waiting for a typo. Thirty
+# still caps online guessing at roughly 2,900 tries a day against one password.
+@limiter.limit("30 per 15 minutes", methods=["POST"])
 @staff_required
 def admin_unlock():
     error = None
@@ -278,10 +286,10 @@ def admin_unlock():
             session["admin_user"] = matched
             session["admin_at"] = time.time()
             app.logger.info("ADMIN unlock ok user=%s ip=%s",
-                            _loggable(matched), get_remote_address())
+                            _loggable(matched), client_ip())
             return redirect(url_for("admin"))
         app.logger.info("ADMIN unlock FAILED user=%s ip=%s",
-                        _loggable(submitted), get_remote_address())
+                        _loggable(submitted), client_ip())
         error = "Wrong admin username or password."
     return render_template("admin_unlock.html", error=error,
                            timed_out=request.args.get("timeout") == "1",
