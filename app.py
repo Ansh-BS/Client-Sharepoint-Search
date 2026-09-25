@@ -54,6 +54,41 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = (
     os.getenv("SESSION_COOKIE_SECURE", "true").strip().lower() != "false")
 
+# Whether a reverse proxy this app trusts sits in front of it. Off by default,
+# and deliberately so: with nothing in front, the forwarding headers below are
+# caller-supplied, and anyone could hand themselves a fresh address on every
+# request and walk straight past the rate limiter. Set TRUST_PROXY=1 only where
+# a real proxy sets them — on PythonAnywhere, that is always.
+TRUST_PROXY = os.getenv("TRUST_PROXY", "false").strip().lower() in (
+    "1", "true", "yes", "on")
+
+
+def client_ip():
+    """The caller's address, as well as this deployment can know it.
+
+    PythonAnywhere load-balances web apps, so ``request.remote_addr`` is the
+    balancer: one constant value for every visitor. Used as a rate-limit key it
+    puts the whole firm in a single bucket, so one person mistyping a password
+    locks out the office; written to the audit log it says nothing at all. The
+    balancer puts the real caller in ``X-Real-IP``.
+    """
+    if TRUST_PROXY:
+        real = request.headers.get("X-Real-IP", "").strip()
+        if real:
+            return real
+        # For a proxy that sets only X-Forwarded-For. The caller may have sent
+        # their own value and an appending proxy adds what it actually saw at
+        # the end, so the rightmost non-empty hop is the only one vouched for.
+        # Reading the leftmost entry would be reading attacker-chosen input.
+        for hop in reversed(
+                request.headers.get("X-Forwarded-For", "").split(",")):
+            hop = hop.strip()
+            if hop:
+                return hop
+    # Never empty: an empty key would pool every caller into one bucket again.
+    return get_remote_address()
+
+
 limiter = Limiter(get_remote_address, app=app, default_limits=[],
                    storage_uri="memory://")
 
