@@ -5,7 +5,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("STAFF_PASSWORD", "staffpw")
-os.environ.setdefault("ADMIN_USERNAME", "adminuser")
+os.environ.setdefault("ADMIN_USERNAMES",
+                      "adminuser, secondadmin ,officemanager")
 os.environ.setdefault("ADMIN_PASSWORD", "adminpw")
 os.environ.setdefault("SESSION_COOKIE_SECURE", "false")
 

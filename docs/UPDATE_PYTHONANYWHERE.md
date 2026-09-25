@@ -52,7 +52,7 @@ No new packages were added, so you do **not** need to re-run `pip install`.
 Leave these alone. They live only on the server and hold your real data and
 secrets:
 
-- **`.env`** — your `SECRET_KEY`, `STAFF_PASSWORD`, `ADMIN_USERNAME`,
+- **`.env`** — your `SECRET_KEY`, `STAFF_PASSWORD`, `ADMIN_USERNAMES`,
   `ADMIN_PASSWORD`.
   Overwriting it takes the site down.
 - **`data/clients.json`** — the real client list you uploaded through

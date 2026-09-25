@@ -21,7 +21,7 @@ Two facts shape every step below.
 
 2. **The live folder is not a git repo, and it holds two files that exist
    nowhere else:**
-   - `.env` — `SECRET_KEY`, `STAFF_PASSWORD`, `ADMIN_USERNAME`,
+   - `.env` — `SECRET_KEY`, `STAFF_PASSWORD`, `ADMIN_USERNAMES`,
      `ADMIN_PASSWORD`
    - `data/clients.json` — the real client list, with every SharePoint URL
 

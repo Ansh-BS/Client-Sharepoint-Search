@@ -1,5 +1,6 @@
 """Client SharePoint Search — Flask app (port 5001)."""
 import hmac
+import logging
 import os
 import secrets
 from functools import wraps
@@ -16,14 +17,28 @@ from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
 
-_missing = [k for k in ("SECRET_KEY", "STAFF_PASSWORD", "ADMIN_USERNAME",
+_missing = [k for k in ("SECRET_KEY", "STAFF_PASSWORD", "ADMIN_USERNAMES",
                         "ADMIN_PASSWORD")
             if not os.getenv(k)]
 if _missing:
     raise SystemExit(f"Missing required .env values: {', '.join(_missing)}")
 
+# Several people share one ADMIN_PASSWORD but sign in under their own name, so
+# the log can say who made a change. Order and spelling here are the canonical
+# ones; what someone types is matched case-insensitively.
+ADMIN_USERNAMES = tuple(n.strip() for n in os.getenv("ADMIN_USERNAMES").split(",")
+                        if n.strip())
+if not ADMIN_USERNAMES:
+    raise SystemExit("ADMIN_USERNAMES must list at least one username, "
+                     "comma-separated.")
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
+
+# The admin audit lines below are INFO; without this they'd be dropped, since
+# a non-debug logger inherits the root level (WARNING). They go to stderr —
+# your terminal in dev, the server error log on PythonAnywhere.
+app.logger.setLevel(logging.INFO)
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -65,6 +80,31 @@ def set_security_headers(response):
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
     return response
+
+
+def _match_admin_username(submitted):
+    """The configured spelling of a submitted admin username, else None.
+
+    Every configured name is compared and the loop always runs to the end, so
+    the time taken doesn't betray which entry matched — or that any did.
+    """
+    candidate = submitted.strip().casefold()
+    matched = None
+    for name in ADMIN_USERNAMES:
+        if hmac.compare_digest(candidate, name.casefold()):
+            matched = name
+    return matched
+
+
+def _loggable(value):
+    """Quote and clip a value so a typed newline can't forge a log line."""
+    return repr(str(value)[:60])
+
+
+def _audit(message, *args):
+    app.logger.info("ADMIN " + message + " user=%s ip=%s", *args,
+                    _loggable(session.get("admin_user", "?")),
+                    get_remote_address())
 
 
 def staff_required(view):
@@ -167,14 +207,18 @@ def admin_unlock():
         # wrong password cost the same work and the error below can't tell an
         # attacker which half they got right. The username is matched
         # case-insensitively and trimmed -- the password is the secret here.
-        user_ok = hmac.compare_digest(
-            request.form.get("username", "").strip().casefold(),
-            os.getenv("ADMIN_USERNAME").strip().casefold())
+        submitted = request.form.get("username", "")
+        matched = _match_admin_username(submitted)
         password_ok = hmac.compare_digest(request.form.get("password", ""),
                                           os.getenv("ADMIN_PASSWORD"))
-        if user_ok and password_ok:
+        if matched and password_ok:
             session["admin"] = True
+            session["admin_user"] = matched
+            app.logger.info("ADMIN unlock ok user=%s ip=%s",
+                            _loggable(matched), get_remote_address())
             return redirect(url_for("admin"))
+        app.logger.info("ADMIN unlock FAILED user=%s ip=%s",
+                        _loggable(submitted), get_remote_address())
         error = "Wrong admin username or password."
     return render_template("admin_unlock.html", error=error)
 
@@ -217,6 +261,7 @@ def admin():
                     save_clients(clients)
                     discard_pending(token)
                     session.pop("pending_upload", None)
+                    _audit("replace clients=%d", len(clients))
                     missing = [c["name"] for c in clients if not c["link"]]
                     result = {"kind": "replace", "count": len(clients),
                               "missing": missing}
@@ -251,6 +296,8 @@ def admin():
                 else:
                     clients[idx] = entry
                 save_clients(clients)
+                _audit("add verb=%s id=%s name=%s", pending["verb"],
+                       _loggable(pending["id"]), _loggable(pending["name"]))
                 session.pop("pending_action", None)
                 result = {"kind": "add", "verb": pending["verb"],
                           "name": pending["name"]}
@@ -284,6 +331,9 @@ def admin():
                 else:
                     removed = clients.pop(idx)
                     save_clients(clients)
+                    _audit("remove id=%s name=%s",
+                           _loggable(removed.get("id")),
+                           _loggable(removed["name"]))
                     result = {"kind": "delete", "name": removed["name"]}
                 session.pop("pending_action", None)
 

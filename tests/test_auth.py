@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+
 from storage import save_clients
 
 
@@ -48,3 +52,23 @@ def test_api_returns_clients_when_logged_in(logged_in, data_path):
 def test_logout_clears_session(logged_in):
     logged_in.get("/logout")
     assert logged_in.get("/").status_code == 302
+
+
+def _boot(**overrides):
+    """Import the app in a fresh interpreter with a doctored environment."""
+    env = dict(os.environ, **overrides)
+    env["PYTHONPATH"] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return subprocess.run([sys.executable, "-c", "import app"],
+                          capture_output=True, text=True, env=env)
+
+
+def test_app_refuses_to_start_without_admin_usernames():
+    proc = _boot(ADMIN_USERNAMES="")
+    assert proc.returncode != 0
+    assert "ADMIN_USERNAMES" in proc.stderr
+
+
+def test_app_refuses_to_start_on_a_list_of_only_separators():
+    proc = _boot(ADMIN_USERNAMES=" , , ")
+    assert proc.returncode != 0
+    assert "ADMIN_USERNAMES" in proc.stderr

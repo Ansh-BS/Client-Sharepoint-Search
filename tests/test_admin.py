@@ -1,4 +1,7 @@
+import logging
 import re
+
+import pytest
 
 from storage import load_clients, save_clients
 
@@ -80,6 +83,38 @@ def test_unlock_wrong_username_rejected(logged_in, data_path):
                                 "password": "adminpw"})
     assert b"Wrong admin username or password" in resp.data
     assert logged_in.get("/admin").status_code == 302
+
+
+@pytest.mark.parametrize("name", ["adminuser", "secondadmin", "officemanager"])
+def test_every_configured_username_unlocks_with_the_shared_password(
+        logged_in, data_path, name):
+    resp = logged_in.post("/admin/unlock",
+                          data={"username": name, "password": "adminpw"})
+    assert resp.status_code == 302
+    assert logged_in.get("/admin").status_code == 200
+
+
+def test_username_not_in_the_list_is_rejected(logged_in, data_path):
+    resp = logged_in.post("/admin/unlock",
+                          data={"username": "fourthperson",
+                                "password": "adminpw"})
+    assert b"Wrong admin username or password" in resp.data
+    assert logged_in.get("/admin").status_code == 302
+
+
+def test_unlock_stores_the_canonical_username_in_the_session(logged_in,
+                                                             data_path):
+    logged_in.post("/admin/unlock",
+                   data={"username": " SECONDADMIN ", "password": "adminpw"})
+    with logged_in.session_transaction() as sess:
+        assert sess["admin_user"] == "secondadmin"
+
+
+def test_admin_page_never_shows_the_username(admin, data_path):
+    """The record is for the server log only — not for the page."""
+    body = admin.get("/admin").data.lower()
+    for name in (b"adminuser", b"secondadmin", b"officemanager"):
+        assert name not in body
 
 
 def test_unlock_missing_username_rejected(logged_in, data_path):
@@ -332,3 +367,82 @@ def test_cancel_discards_delete_preview(admin, data_path):
     resp = confirm_delete(admin)
     assert b"expired" in resp.data
     assert len(load_clients(data_path)) == 1
+
+
+# --- terminal audit log ----------------------------------------------------
+
+def test_unlock_logs_who_got_in(logged_in, data_path, caplog):
+    with caplog.at_level(logging.INFO):
+        logged_in.post("/admin/unlock",
+                       data={"username": "secondadmin", "password": "adminpw"})
+    assert "ADMIN unlock ok" in caplog.text
+    assert "secondadmin" in caplog.text
+
+
+def test_failed_unlock_logs_the_attempted_username(logged_in, data_path,
+                                                   caplog):
+    with caplog.at_level(logging.INFO):
+        logged_in.post("/admin/unlock",
+                       data={"username": "intruder", "password": "nope"})
+    assert "ADMIN unlock FAILED" in caplog.text
+    assert "intruder" in caplog.text
+
+
+def test_log_line_cannot_be_forged_through_the_username(logged_in, data_path,
+                                                        caplog):
+    with caplog.at_level(logging.INFO):
+        logged_in.post("/admin/unlock",
+                       data={"username": "x\nADMIN unlock ok user=boss",
+                             "password": "nope"})
+    assert "\nADMIN unlock ok" not in caplog.text
+
+
+def test_confirmed_add_is_logged_with_the_username(admin, data_path, caplog):
+    admin.post("/admin", data={"action": "add_client",
+                               "client_name": "Acme Ltd",
+                               "client_id": "A1",
+                               "client_link": "https://example.com/a"})
+    with caplog.at_level(logging.INFO):
+        admin.post("/admin", data={"action": "confirm_add_client"})
+    assert "ADMIN add" in caplog.text
+    assert "adminuser" in caplog.text
+    assert "Acme Ltd" in caplog.text
+
+
+def test_preview_alone_is_not_logged(admin, data_path, caplog):
+    """A preview changes nothing, so it leaves no line in the log."""
+    with caplog.at_level(logging.INFO):
+        admin.post("/admin", data={"action": "add_client",
+                                   "client_name": "Acme Ltd",
+                                   "client_id": "A1"})
+    assert "ADMIN add" not in caplog.text
+
+
+def test_confirmed_remove_is_logged_with_the_username(admin, data_path,
+                                                      caplog):
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": None}], data_path)
+    admin.post("/admin", data={"action": "delete_client",
+                               "client_query": "Acme Ltd"})
+    with caplog.at_level(logging.INFO):
+        admin.post("/admin", data={"action": "confirm_delete_client"})
+    assert "ADMIN remove" in caplog.text
+    assert "adminuser" in caplog.text
+    assert "Acme Ltd" in caplog.text
+
+
+def test_confirmed_replace_is_logged_with_the_username(admin, data_path,
+                                                       make_xlsx, tmp_path,
+                                                       caplog):
+    path = make_xlsx(tmp_path / "c.xlsx",
+                     [("A1", "Acme Ltd", "https://example.com/a"),
+                      ("A2", "Beta Ltd", "https://example.com/b")])
+    with open(path, "rb") as fh:
+        admin.post("/admin", data={"file": (fh, "c.xlsx")},
+                   content_type="multipart/form-data")
+    with admin.session_transaction() as sess:
+        token = sess["pending_upload"]
+    with caplog.at_level(logging.INFO):
+        admin.post("/admin", data={"action": "confirm", "token": token})
+    assert "ADMIN replace" in caplog.text
+    assert "adminuser" in caplog.text
+    assert "clients=2" in caplog.text
