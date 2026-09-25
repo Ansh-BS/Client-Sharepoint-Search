@@ -27,6 +27,14 @@
     <p class="sub"><strong>Nothing has changed yet.</strong> This is what the upload
       will do to the live list. Confirm to apply it.</p>
 
+    {% if preview.stale %}
+      <p class="error" role="alert">The client list
+        changed while you were reviewing — someone else edited it, or another
+        upload was confirmed. Your spreadsheet was <strong>not</strong>
+        applied. Below is what it would do to the list as it stands now; check
+        it and confirm again.</p>
+    {% endif %}
+
     <p class="review-line">Replaces the current <strong>{{ preview.current_count }}</strong>
       client{{ '' if preview.current_count == 1 else 's' }} with
       <strong>{{ preview.count }}</strong> from the new file{% if preview.added %},

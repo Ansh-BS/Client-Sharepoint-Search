@@ -196,6 +196,64 @@ def test_preview_warns_about_dropped_clients(admin, data_path, make_xlsx,
     assert b"Vanishing Client" in resp.data
 
 
+def test_a_list_that_moves_under_the_preview_is_re_shown_not_committed(
+        admin, data_path, make_xlsx, tmp_path):
+    """The preview's promise is about consequences, not just about data.
+
+    The file that gets written is pinned by token, so the *data* is never a
+    surprise. The diff is not: it is computed against the live list at preview
+    time, so if the list moves before confirm, the admin agreed to a set of
+    consequences that no longer holds.
+    """
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": None}], data_path)
+    p = make_xlsx(tmp_path / "new.xlsx", [("B1", "Beta Ltd", "https://b")])
+    resp = preview(admin, p)
+    assert b"Acme Ltd" in resp.data          # the one drop they were shown
+    token = _token(resp)
+
+    # A second admin adds a client while the preview sits on screen. Replacing
+    # now would drop it too, and nobody has been told.
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": None},
+                  {"id": "C1", "name": "Gamma Ltd", "link": None}], data_path)
+
+    resp = confirm(admin, token)
+
+    assert [c["id"] for c in load_clients(data_path)] == ["A1", "C1"], (
+        "committed a replace whose consequences the admin was never shown")
+    assert b"changed while you were reviewing" in resp.data
+    assert b"Gamma Ltd" in resp.data          # the newly-exposed drop
+
+
+def test_re_confirming_the_refreshed_preview_commits_without_re_uploading(
+        admin, data_path, make_xlsx, tmp_path):
+    """The parsed file is still stashed, so only the diff needed refreshing."""
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": None}], data_path)
+    p = make_xlsx(tmp_path / "new.xlsx", [("B1", "Beta Ltd", "https://b")])
+    token = _token(preview(admin, p))
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": None},
+                  {"id": "C1", "name": "Gamma Ltd", "link": None}], data_path)
+
+    refreshed = confirm(admin, token)
+    assert _token(refreshed) == token
+
+    confirm(admin, token)
+    assert [c["id"] for c in load_clients(data_path)] == ["B1"]
+
+
+def test_an_unrelated_edit_to_a_link_does_not_force_a_re_confirm(
+        admin, data_path, make_xlsx, tmp_path):
+    """Only a change that alters the diff should interrupt. A link edit
+    changes the live list but not who is about to stop being findable."""
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": None}], data_path)
+    p = make_xlsx(tmp_path / "new.xlsx", [("B1", "Beta Ltd", "https://b")])
+    token = _token(preview(admin, p))
+    save_clients([{"id": "A1", "name": "Acme Ltd", "link": "https://new"}],
+                 data_path)
+
+    confirm(admin, token)
+    assert [c["id"] for c in load_clients(data_path)] == ["B1"]
+
+
 def test_cancel_discards_preview(admin, data_path, make_xlsx, tmp_path):
     save_clients([{"id": "OLD", "name": "Old Client", "link": None}], data_path)
     p = make_xlsx(tmp_path / "new.xlsx", [("N1", "New Client", "https://x")])

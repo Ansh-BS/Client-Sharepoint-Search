@@ -1,6 +1,8 @@
 """Client SharePoint Search — Flask app (port 5001)."""
+import hashlib
 import hmac
 import ipaddress
+import json
 import logging
 import os
 import secrets
@@ -224,6 +226,7 @@ def _lock_admin(reason_idle=None):
     if token:
         discard_pending(token)
     session.pop("pending_action", None)
+    session.pop("pending_basis", None)
     for key in ("admin", "admin_user", "admin_at"):
         session.pop(key, None)
 
@@ -310,6 +313,34 @@ def _diff_clients(current, new):
     return dropped, added
 
 
+def _list_fingerprint(clients):
+    """Identify the live list by what the upload diff actually depends on.
+
+    Only the set of ids and names matters: `dropped` and `added` are computed
+    from client keys, and `missing` comes from the new file, not this one. So a
+    link edit or a reordering leaves this unchanged and will not interrupt an
+    admin mid-review, while an added or removed client will.
+    """
+    pairs = sorted([(c.get("id") or ""), (c.get("name") or "")]
+                   for c in clients)
+    return hashlib.sha256(
+        json.dumps(pairs, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def _replace_preview(new_clients, token, current):
+    """What replacing the live list with `new_clients` would do to it."""
+    dropped, added = _diff_clients(current, new_clients)
+    return {
+        "kind": "replace",
+        "token": token,
+        "count": len(new_clients),
+        "current_count": len(current),
+        "added": [c["name"] for c in added],
+        "dropped": [c["name"] for c in dropped],
+        "missing": [c["name"] for c in new_clients if not c["link"]],
+        }
+
+
 def _find_by_key(clients, cid, name):
     key = _client_key({"id": cid, "name": name})
     return next((i for i, c in enumerate(clients) if _client_key(c) == key), None)
@@ -387,6 +418,7 @@ def admin():
             if token:
                 discard_pending(token)
             session.pop("pending_action", None)
+            session.pop("pending_basis", None)
             return redirect(url_for("admin"))
 
         elif action == "confirm":
@@ -402,13 +434,26 @@ def admin():
                 if clients is None:
                     error = "That preview expired. Upload the spreadsheet again."
                 else:
-                    save_clients(clients)
-                    discard_pending(token)
-                    session.pop("pending_upload", None)
-                    _audit("replace clients=%d", len(clients))
-                    missing = [c["name"] for c in clients if not c["link"]]
-                    result = {"kind": "replace", "count": len(clients),
-                              "missing": missing}
+                    current = load_clients()
+                    basis = _list_fingerprint(current)
+                    if basis != session.get("pending_basis"):
+                        # The live list moved while this preview was on screen,
+                        # so the consequences the admin agreed to no longer
+                        # hold. The parsed file is still stashed and still what
+                        # would be written — only the diff went stale, so show
+                        # it again against the list as it is now. Nothing saved.
+                        session["pending_basis"] = basis
+                        preview = _replace_preview(clients, token, current)
+                        preview["stale"] = True
+                    else:
+                        save_clients(clients)
+                        discard_pending(token)
+                        session.pop("pending_upload", None)
+                        session.pop("pending_basis", None)
+                        _audit("replace clients=%d", len(clients))
+                        missing = [c["name"] for c in clients if not c["link"]]
+                        result = {"kind": "replace", "count": len(clients),
+                                  "missing": missing}
 
         elif action == "add_client":
             name = request.form.get("client_name", "").strip()
@@ -500,23 +545,14 @@ def admin():
                     error = str(exc)
                 else:
                     current = load_clients()
-                    dropped, added = _diff_clients(current, clients)
                     token = secrets.token_urlsafe(24)
                     old = session.get("pending_upload")
                     if old and old != token:
                         discard_pending(old)
                     save_pending(clients, token)
                     session["pending_upload"] = token
-                    preview = {
-                        "kind": "replace",
-                        "token": token,
-                        "count": len(clients),
-                        "current_count": len(current),
-                        "added": [c["name"] for c in added],
-                        "dropped": [c["name"] for c in dropped],
-                        "missing": [c["name"] for c in clients
-                                    if not c["link"]],
-                        }
+                    session["pending_basis"] = _list_fingerprint(current)
+                    preview = _replace_preview(clients, token, current)
     return render_template("admin.html", result=result, error=error,
                            preview=preview)
 
