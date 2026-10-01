@@ -50,6 +50,9 @@
   <p id="status" class="sr-only" role="status" aria-live="polite"></p>
 </main>
 
+<!-- Filled by presence.js; stays hidden unless more than one browser is on. -->
+<p id="presence" class="presence" hidden></p>
+
 <footer class="site-footer">
   © 2026 Benison Solvers Ltd · Designed &amp; Developed by Ansh Bahuguna &amp;
   Sarvpreet Kalra
@@ -57,5 +60,6 @@
 
 <script src="{{ url_for('static', filename='fuse.min.js') }}"></script>
 <script src="{{ url_for('static', filename='search.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='presence.js', v=asset_v) }}"></script>
 </body>
 </html>
