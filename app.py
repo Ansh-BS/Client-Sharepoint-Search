@@ -17,6 +17,8 @@ from flask_limiter.util import get_remote_address
 
 from storage import (discard_pending, load_clients, load_pending,
                      save_clients, save_pending)
+from temp_codes import (is_temp, merge_temp_clients, next_temp_code,
+                       pending_temp)
 from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
@@ -152,7 +154,7 @@ limiter = Limiter(client_ip, app=app, default_limits=[],
 # leaves staff staring at the old ones. Bump this on every deploy that touches
 # style.css, search.js, theme.js or any of the other static scripts; the
 # changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "18"
+ASSET_VERSION = "21"
 
 
 @app.context_processor
@@ -328,16 +330,23 @@ def _list_fingerprint(clients):
 
 
 def _replace_preview(new_clients, token, current):
-    """What replacing the live list with `new_clients` would do to it."""
-    dropped, added = _diff_clients(current, new_clients)
+    """What replacing the live list with `new_clients` would do to it.
+
+    Diffed against the merged list, not the raw file, so the preview describes
+    the commit that will actually happen — a client awaiting a code is kept,
+    and must not be listed as about to stop being findable.
+    """
+    merged, kept = merge_temp_clients(new_clients, current)
+    dropped, added = _diff_clients(current, merged)
     return {
         "kind": "replace",
         "token": token,
-        "count": len(new_clients),
+        "count": len(merged),
         "current_count": len(current),
         "added": [c["name"] for c in added],
         "dropped": [c["name"] for c in dropped],
-        "missing": [c["name"] for c in new_clients if not c["link"]],
+        "missing": [c["name"] for c in merged if not c["link"]],
+        "kept_temp": [c["name"] for c in kept],
         }
 
 
@@ -446,28 +455,38 @@ def admin():
                         preview = _replace_preview(clients, token, current)
                         preview["stale"] = True
                     else:
-                        save_clients(clients)
+                        merged, kept = merge_temp_clients(clients, current)
+                        save_clients(merged)
                         discard_pending(token)
                         session.pop("pending_upload", None)
                         session.pop("pending_basis", None)
-                        _audit("replace clients=%d", len(clients))
-                        missing = [c["name"] for c in clients if not c["link"]]
-                        result = {"kind": "replace", "count": len(clients),
-                                  "missing": missing}
+                        _audit("replace clients=%d kept_temp=%d",
+                               len(merged), len(kept))
+                        missing = [c["name"] for c in merged if not c["link"]]
+                        result = {"kind": "replace", "count": len(merged),
+                                  "missing": missing,
+                                  "kept_temp": [c["name"] for c in kept]}
 
         elif action == "add_client":
             name = request.form.get("client_name", "").strip()
             cid = request.form.get("client_id", "").strip()
             link = request.form.get("client_link", "").strip() or None
-            if not name or not cid:
-                error = "Client name and Client ID required."
+            if not name:
+                error = "Client name required."
             else:
                 clients = load_clients()
+                # No code yet is a normal state for a new client, not a
+                # mistake: mint one so they are findable today, and let the
+                # waiting panel chase the real ID later.
+                minted = not cid
+                if minted:
+                    cid = next_temp_code(clients)
                 idx = _find_by_key(clients, cid, name)
                 verb = "Added" if idx is None else "Updated"
                 old_link = clients[idx]["link"] if idx is not None else None
                 pending = {"kind": "add", "name": name, "id": cid,
-                          "link": link, "verb": verb, "old_link": old_link}
+                          "link": link, "verb": verb, "old_link": old_link,
+                          "minted": minted}
                 session["pending_action"] = pending
                 preview = pending
 
@@ -477,8 +496,21 @@ def admin():
                 error = "That preview expired. Add the client again."
             else:
                 clients = load_clients()
-                idx = _find_by_key(clients, pending["id"], pending["name"])
-                entry = {"id": pending["id"], "name": pending["name"],
+                cid = pending["id"]
+                if pending.get("minted"):
+                    # Two admins adding code-less clients at once are both shown
+                    # TEMP01, because each preview read the list before the other
+                    # saved. Minting again here, against the list as it now is,
+                    # is what stops the second confirm matching the first's row
+                    # and overwriting that client. The number is bookkeeping the
+                    # admin never chose, so re-minting costs them nothing.
+                    taken = next((c for c in clients
+                                  if (c.get("id") or "").strip().casefold()
+                                  == cid.casefold()), None)
+                    if taken is not None:
+                        cid = next_temp_code(clients)
+                idx = _find_by_key(clients, cid, pending["name"])
+                entry = {"id": cid, "name": pending["name"],
                          "link": pending["link"]}
                 if idx is None:
                     clients.append(entry)
@@ -486,10 +518,72 @@ def admin():
                     clients[idx] = entry
                 save_clients(clients)
                 _audit("add verb=%s id=%s name=%s", pending["verb"],
-                       _loggable(pending["id"]), _loggable(pending["name"]))
+                       _loggable(cid), _loggable(pending["name"]))
                 session.pop("pending_action", None)
                 result = {"kind": "add", "verb": pending["verb"],
-                          "name": pending["name"]}
+                          "name": pending["name"], "id": cid,
+                          "minted": pending.get("minted", False)}
+
+        elif action == "assign_code":
+            temp_id = request.form.get("temp_id", "").strip()
+            real_id = request.form.get("real_id", "").strip()
+            clients = load_clients()
+            idx = _find_by_query(clients, temp_id)
+            if idx is None:
+                error = f'No client matches "{temp_id}".'
+            elif not is_temp(clients[idx].get("id")):
+                # This form exists to retire a temporary ID. Pointed at a real
+                # one it would silently rewrite a settled client's ID, which is
+                # the field everything else looks that client up by.
+                error = (f'{clients[idx]["name"]} is not a temporary ID — '
+                         "use Add or update a client to change a real ID.")
+            elif not real_id:
+                error = "Enter the real Client ID to assign."
+            elif is_temp(real_id):
+                error = (f"{real_id} is another temporary ID, not a real "
+                         "Client ID.")
+            else:
+                # The one uniqueness check in the app. Assigning is exactly the
+                # moment a code is meant to become permanent, so letting it land
+                # on top of another client's would bury the mistake in the one
+                # field everything else is looked up by.
+                clash = next((c for i, c in enumerate(clients)
+                              if i != idx
+                              and (c.get("id") or "").strip().casefold()
+                              == real_id.casefold()), None)
+                if clash is not None:
+                    error = (f'Client ID {real_id} already belongs to '
+                             f'{clash["name"]}.')
+                else:
+                    pending = {"kind": "assign", "temp_id": temp_id,
+                               "real_id": real_id, "name": clients[idx]["name"]}
+                    session["pending_action"] = pending
+                    preview = pending
+
+        elif action == "confirm_assign_code":
+            pending = session.get("pending_action")
+            if not pending or pending.get("kind") != "assign":
+                error = "That preview expired. Assign the code again."
+            else:
+                clients = load_clients()
+                idx = _find_by_query(clients, pending["temp_id"])
+                if idx is None or not is_temp(clients[idx].get("id")):
+                    # Gone, or someone else assigned it while this sat on screen.
+                    error = (f'{pending["name"]} is no longer awaiting a real ID — '
+                             "nothing was changed.")
+                else:
+                    # Edit the row in place. Re-adding through the form above
+                    # would key on the new id, miss this row and append a
+                    # second copy of the same client.
+                    clients[idx]["id"] = pending["real_id"]
+                    save_clients(clients)
+                    _audit("assign temp=%s id=%s name=%s",
+                           _loggable(pending["temp_id"]),
+                           _loggable(pending["real_id"]),
+                           _loggable(clients[idx]["name"]))
+                    result = {"kind": "assign", "id": pending["real_id"],
+                              "name": clients[idx]["name"]}
+                session.pop("pending_action", None)
 
         elif action == "delete_client":
             query = request.form.get("client_query", "").strip()
@@ -554,7 +648,9 @@ def admin():
                     session["pending_basis"] = _list_fingerprint(current)
                     preview = _replace_preview(clients, token, current)
     return render_template("admin.html", result=result, error=error,
-                           preview=preview)
+                           preview=preview,
+                           waiting=[{"id": c.get("id"), "name": c.get("name")}
+                                    for c in pending_temp(load_clients())])
 
 
 if __name__ == "__main__":

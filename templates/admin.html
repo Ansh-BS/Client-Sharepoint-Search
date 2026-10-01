@@ -50,8 +50,20 @@
       </details>
     {% endif %}
 
+    {% if preview.kept_temp %}
+      <details open>
+        <summary>{{ preview.kept_temp|length }} client{{ '' if preview.kept_temp|length == 1 else 's' }} awaiting a real ID {{ 'is' if preview.kept_temp|length == 1 else 'are' }} kept</summary>
+        <p>{{ 'This client was' if preview.kept_temp|length == 1 else 'These clients were' }}
+          added here before {{ 'their' if preview.kept_temp|length != 1 else 'its' }}
+          permanent Client ID existed, so {{ 'they are' if preview.kept_temp|length != 1 else 'it is' }}
+          not in the spreadsheet yet. Replacing the list keeps
+          {{ 'them' if preview.kept_temp|length != 1 else 'it' }}.</p>
+        <ul>{% for name in preview.kept_temp %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+
     {% if preview.missing %}
-      <details{% if not preview.dropped %} open{% endif %}>
+      <details{% if not preview.dropped and not preview.kept_temp %} open{% endif %}>
         <summary>{{ preview.missing|length }} client{{ '' if preview.missing|length == 1 else 's' }} with no SharePoint link</summary>
         <p>They stay searchable, but show “No link on file” until a URL is added
           to the spreadsheet.</p>
@@ -76,7 +88,12 @@
     <p class="sub"><strong>Nothing has changed yet.</strong> Confirm to save this
       client.</p>
 
-    {% if preview.verb == "Added" %}
+    {% if preview.minted %}
+      <p class="review-line">No Client ID given, so this client is saved as
+        <strong>{{ preview.id }}</strong> — a temporary ID. They are findable
+        straight away; assign the real ID from the “Clients awaiting a real ID”
+        panel on this page once you have it.</p>
+    {% elif preview.verb == "Added" %}
       <p class="review-line">Adds a new client: <strong>{{ preview.name }}</strong>
         (ID {{ preview.id }}).</p>
     {% else %}
@@ -96,6 +113,29 @@
       <form method="post">
         <input type="hidden" name="action" value="confirm_add_client">
         <button type="submit">{{ preview.verb }} client: {{ preview.name }}</button>
+      </form>
+      <form method="post" data-role="cancel-form">
+        <input type="hidden" name="action" value="cancel">
+        <button type="submit" class="secondary" data-role="cancel">Cancel</button>
+      </form>
+    </div>
+
+  {% elif preview.kind == "assign" %}
+    <h1>Review before assigning</h1>
+    <p class="sub"><strong>Nothing has changed yet.</strong> Confirm to give this
+      client its permanent Client ID.</p>
+
+    <p class="review-line"><strong>{{ preview.name }}</strong> changes from the
+      temporary <strong>{{ preview.temp_id }}</strong> to
+      <strong>{{ preview.real_id }}</strong>. The client, its name and its link
+      are untouched — only the ID changes.</p>
+    <p class="review-line">Anyone searching <strong>{{ preview.temp_id }}</strong>
+      after this finds nothing; the client is found by its name or the new ID.</p>
+
+    <div class="btn-row">
+      <form method="post">
+        <input type="hidden" name="action" value="confirm_assign_code">
+        <button type="submit">Assign {{ preview.real_id }} to {{ preview.name }}</button>
       </form>
       <form method="post" data-role="cancel-form">
         <input type="hidden" name="action" value="cancel">
@@ -132,9 +172,17 @@
   <div class="card">
     <h2>Add or update a client</h2>
     <p class="sub">Matches an existing client by Client ID (or name if no ID),
-      and overwrites it. Otherwise adds a new one — no spreadsheet needed.</p>
+      and overwrites it. Otherwise adds a new one — no spreadsheet needed.
+      No Client ID yet? Leave it blank and one is assigned temporarily.</p>
     {% if result and result.kind == "add" %}
-      <p class="ok" role="status">{{ result.verb }} client: {{ result.name }}</p>
+      {% if result.minted %}
+        {# Say which code landed: another admin confirming first can push this
+           off the number the preview showed. #}
+        <p class="ok" role="status">{{ result.verb }} client: {{ result.name }}
+          — temporary Client ID {{ result.id }}</p>
+      {% else %}
+        <p class="ok" role="status">{{ result.verb }} client: {{ result.name }}</p>
+      {% endif %}
     {% endif %}
     <form method="post" class="inline-form">
       <input type="hidden" name="action" value="add_client">
@@ -142,8 +190,9 @@
       <div class="field"><input id="client_name" type="text" name="client_name"
              autocomplete="off" required></div>
       <ul id="client-name-suggestions" class="suggest-list" hidden></ul>
-      <label for="client_id">Client ID</label>
-      <div class="field"><input id="client_id" type="text" name="client_id" required></div>
+      <label for="client_id">Client ID <span class="opt">— leave blank if not assigned yet</span></label>
+      <div class="field"><input id="client_id" type="text" name="client_id"
+             autocomplete="off"></div>
       <label for="client_link">SharePoint link (optional)</label>
       <div class="field"><input id="client_link" type="url" name="client_link"></div>
       <button type="submit">Review changes</button>
@@ -167,6 +216,37 @@
     </form>
   </div>
 
+  {% if waiting %}
+  <div class="card">
+    <h2>Clients awaiting a real ID</h2>
+    <p class="sub">Added before their permanent Client ID existed. They are
+      fully searchable meanwhile. Pick the client, type the real ID and assign
+      it — the client is updated in place, never duplicated.</p>
+    {% if result and result.kind == "assign" %}
+      <p class="ok" role="status">Assigned {{ result.id }} to {{ result.name }}</p>
+    {% endif %}
+    {# The picker's list, worked out server-side, so the browser needs neither a
+       second fetch nor its own copy of the temporary-ID rule. #}
+    <script type="application/json" id="waiting-data">{{ waiting|tojson }}</script>
+    <form method="post" class="inline-form">
+      <input type="hidden" name="action" value="assign_code">
+      <label for="temp_id">Find a client</label>
+      <div class="field"><input id="temp_id" type="text" name="temp_id"
+             placeholder="Name or temporary ID…" autocomplete="off" required></div>
+      <ul id="waiting-suggestions" class="suggest-list" hidden></ul>
+      <label for="real_id">Real Client ID</label>
+      <div class="field"><input id="real_id" type="text" name="real_id"
+             autocomplete="off" required></div>
+      <button type="submit">Assign</button>
+    </form>
+  </div>
+  {% elif result and result.kind == "assign" %}
+    <div class="card">
+      <p class="ok" role="status">Assigned {{ result.id }} to {{ result.name }}
+        — no clients are waiting for an ID now.</p>
+    </div>
+  {% endif %}
+
   <div class="card">
   {% if result and result.kind == "replace" %}
     {# --- committed --------------------------------------------------- #}
@@ -175,6 +255,15 @@
          data-msg="Client list replaced — {{ result.count }} client{{ '' if result.count == 1 else 's' }} now live." hidden></div>
     <p class="ok" role="status">{{ result.count }} clients imported. The search box is
       live with the new list.</p>
+    {% if result.kept_temp %}
+      <details open>
+        <summary>{{ result.kept_temp|length }} client{{ '' if result.kept_temp|length == 1 else 's' }} awaiting a real ID {{ 'was' if result.kept_temp|length == 1 else 'were' }} kept</summary>
+        <p>Not in the spreadsheet yet, so {{ 'they were' if result.kept_temp|length != 1 else 'it was' }}
+          carried across rather than dropped.</p>
+        <ul>{% for name in result.kept_temp %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+
     {% if result.missing %}
       <details open>
         <summary>{{ result.missing|length }} client{{ '' if result.missing|length == 1 else 's' }} with no SharePoint link</summary>

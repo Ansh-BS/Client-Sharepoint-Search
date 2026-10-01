@@ -12,6 +12,15 @@ const LEV_MAX_DISTANCE_CAP = 3;
 const RECENT_KEY = "sp-search:recent";
 const RECENT_MAX = 3;
 
+// Mirrors TEMP_RE in temp_codes.py: a client the office added before their
+// permanent Client ID existed. The code shown is real and searchable, but it
+// is the app's placeholder, not the practice's code.
+const TEMP_RE = /^TEMP\d+$/i;
+
+function isTempId(idStr) {
+  return TEMP_RE.test((idStr || "").trim());
+}
+
 function isValidLink(link) {
   return link && /^https?:\/\//i.test(link);
 }
@@ -64,6 +73,18 @@ function showSkeleton() {
   }
 }
 
+// A standing count in the corner, not a dismissable alert: these clients stay
+// half-filed until someone acts, and the office should keep seeing it.
+function showTempCount() {
+  const el = document.getElementById("temp-count");
+  if (!el) return;
+  const n = clients.filter((c) => c.isTemp).length;
+  el.hidden = n === 0;
+  el.textContent = n === 1
+    ? "1 client awaiting a real ID"
+    : n + " clients awaiting a real ID";
+}
+
 async function init() {
   const box = document.getElementById("search");
   box.placeholder = "Loading client list…";
@@ -89,6 +110,7 @@ async function init() {
       return Object.assign({}, c, {
         nameStr,
         idStr,
+        isTemp: isTempId(idStr),
         nameLower: nameStr.toLowerCase(),
         idLower: idStr.toLowerCase(),
         nameTokens,
@@ -101,6 +123,7 @@ async function init() {
       includeScore: true,
       includeMatches: true,
     });
+    showTempCount();
     document.getElementById("results").innerHTML = "";
     box.disabled = false;
     box.placeholder = "Type a client name or ID…";
@@ -513,6 +536,7 @@ function render() {
     li.setAttribute("role", "option");
     li.setAttribute("aria-selected", "false");
     li.setAttribute("aria-label", item.nameStr + ", client ID " + item.idStr
+      + (item.isTemp ? ", a temporary ID awaiting the real one" : "")
       + (isValidLink(item.link) ? "" : ", no SharePoint link on file"));
 
     const info = document.createElement("div");
@@ -538,6 +562,12 @@ function render() {
     }
 
     info.append(name, id);
+    if (item.isTemp) {
+      const tag = document.createElement("span");
+      tag.className = "temp-tag";
+      tag.textContent = "temp ID";
+      info.appendChild(tag);
+    }
     li.appendChild(info);
 
     if (isValidLink(item.link)) {
