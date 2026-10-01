@@ -15,6 +15,7 @@ from flask import (Flask, jsonify, redirect, render_template, request,
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+import presence
 from storage import (discard_pending, load_clients, load_pending,
                      save_clients, save_pending)
 from temp_codes import (is_temp, merge_temp_clients, next_temp_code,
@@ -154,7 +155,7 @@ limiter = Limiter(client_ip, app=app, default_limits=[],
 # leaves staff staring at the old ones. Bump this on every deploy that touches
 # style.css, search.js, theme.js or any of the other static scripts; the
 # changed URL forces a fresh fetch. Templates read it via asset_v().
-ASSET_VERSION = "21"
+ASSET_VERSION = "22"
 
 
 @app.context_processor
@@ -293,6 +294,33 @@ def index():
 @staff_required
 def api_clients():
     return jsonify(load_clients())
+
+
+@app.route("/api/presence", methods=["POST"])
+# Sized for the office as one caller, not for one person. The limiter keys on
+# client_ip(), and everyone here shares a single connection, so all twenty
+# browsers land in one bucket: a conventional-looking "10 per minute" would 429
+# the whole firm within seconds of the first beat. This route is already behind
+# staff_required; the limit is only a brake on a runaway client.
+#
+# conftest disables the limiter, so no test will catch a wrong number here.
+@limiter.limit("300 per minute")
+@staff_required
+def api_presence():
+    """Record that this browser still has the page open, and say how many do.
+
+    POST, not GET: it writes, and a mutating GET is cacheable and prefetchable.
+
+    The device id is minted here rather than at login so that everyone already
+    signed in when this ships starts counting on their next beat instead of
+    having to log in again. It identifies a browser session and nothing else —
+    no name, no address, and no record of what was searched.
+    """
+    device = session.get("device")
+    if not device:
+        device = secrets.token_urlsafe(9)
+        session["device"] = device
+    return jsonify({"count": presence.touch(device)})
 
 
 def _client_key(c):

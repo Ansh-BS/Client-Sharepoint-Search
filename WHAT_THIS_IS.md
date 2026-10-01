@@ -29,6 +29,11 @@ admin page — the site reads the names, IDs, and folder links from it.
   door shut for everyone. If that happens, wait and try again.
 - **Secure sessions.** Once you log in, your session is protected so it
   can't be hijacked or read by other software on your machine.
+- **You are counted, never watched.** The page shows how many people have
+  it open at the moment. All it keeps is a tally of browsers that have
+  checked in within the last few minutes — no names, and no record of
+  what anyone searched for or whose folder they opened. Nobody, including
+  an admin, can see who is on or what you looked for.
 - **Safe updates.** When a new spreadsheet is uploaded, the old list is
   only replaced once the new one is confirmed good — a bad file can't
   wipe out or corrupt the existing data.

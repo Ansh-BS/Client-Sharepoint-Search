@@ -302,6 +302,17 @@ main {
 }
 main.narrow { max-width: 24rem; }
 
+/* How many people have the page open. Furniture, not a metric block: the
+   footer's own size and colour, no background, no dot, no animation.
+   pointer-events:none so it can never swallow a click meant for what is under
+   it. No aria-live — the page already has one status region carrying search
+   results, and announcing a changing number into it mid-search would be
+   actively unhelpful. */
+.presence {
+  position: fixed; right: var(--sp-4); bottom: var(--sp-4); margin: 0;
+  font-size: .75rem; color: var(--muted); pointer-events: none;
+}
+
 /* Credit line. main is flex:1, so this stays at the bottom of short pages
    without being fixed over the content. */
 .site-footer {
