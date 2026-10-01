@@ -62,8 +62,19 @@
       </details>
     {% endif %}
 
+    {% if preview.minted %}
+      <details open>
+        <summary>{{ preview.minted|length }} client{{ '' if preview.minted|length == 1 else 's' }} will get a temporary ID</summary>
+        <p>{{ 'This row has' if preview.minted|length == 1 else 'These rows have' }}
+          no real Client ID in the file — the column is blank or repeats the
+          name — so {{ 'it' if preview.minted|length == 1 else 'each' }} gets a
+          TEMP code and shows as awaiting a real ID.</p>
+        <ul>{% for name in preview.minted %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+
     {% if preview.missing %}
-      <details{% if not preview.dropped and not preview.kept_temp %} open{% endif %}>
+      <details{% if not preview.dropped and not preview.kept_temp and not preview.minted %} open{% endif %}>
         <summary>{{ preview.missing|length }} client{{ '' if preview.missing|length == 1 else 's' }} with no SharePoint link</summary>
         <p>They stay searchable, but show “No link on file” until a URL is added
           to the spreadsheet.</p>
@@ -261,6 +272,15 @@
         <p>Not in the spreadsheet yet, so {{ 'they were' if result.kept_temp|length != 1 else 'it was' }}
           carried across rather than dropped.</p>
         <ul>{% for name in result.kept_temp %}<li>{{ name }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+
+    {% if result.minted %}
+      <details open>
+        <summary>{{ result.minted|length }} client{{ '' if result.minted|length == 1 else 's' }} given a temporary ID</summary>
+        <p>No real Client ID in the file, so {{ 'it now shows' if result.minted|length == 1 else 'they now show' }}
+          as awaiting one.</p>
+        <ul>{% for name in result.minted %}<li>{{ name }}</li>{% endfor %}</ul>
       </details>
     {% endif %}
 

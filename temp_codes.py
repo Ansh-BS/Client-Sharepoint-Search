@@ -35,11 +35,72 @@ def next_temp_code(clients):
     assignments get reused and the list stays short. Zero-padded to two digits
     to line up with the real IDs; past 99 it simply gets longer.
     """
-    taken = {n for n in (_num(c.get("id")) for c in clients) if n is not None}
+    return _lowest_free(_taken(clients))
+
+
+def _taken(clients):
+    return {n for n in (_num(c.get("id")) for c in clients) if n is not None}
+
+
+def _lowest_free(taken):
     nxt = 1
     while nxt in taken:
         nxt += 1
     return "TEMP%02d" % nxt
+
+
+def _fold(s):
+    return (s or "").strip().casefold()
+
+
+def needs_temp(c):
+    """True for a row with no real Client ID: blank, or the name typed in.
+
+    Clients loaded before temp codes existed often had their name put in the
+    Client ID column as a stand-in. That reads as a real ID everywhere, so they
+    never show as awaiting one. Only an exact (trimmed, case-folded) match to
+    the name counts — an odd-looking code that isn't the name is left alone.
+    """
+    cid = _fold(c.get("id"))
+    return not cid or cid == _fold(c.get("name"))
+
+
+def fill_temp_codes(clients, previous=()):
+    """Give every row that `needs_temp` a temp code. Returns (filled, minted).
+
+    A temp client in `previous` with the same name lends its code, so
+    re-uploading a spreadsheet that still has the name in column A keeps the
+    code staff have already seen instead of minting a new one each time. Each
+    previous code is lent once, so two same-name rows never share an ID.
+
+    New codes skip every temp number in both lists and each code minted so
+    far, so a batch never hands out the same one twice. `minted` lists only
+    the new codes ({"id", "name", "was"}), not the reused ones. Neither input
+    is modified.
+    """
+    in_file = _taken(clients)
+    lendable = {}
+    for c in previous:
+        # A code the file already uses for some row is not free to lend.
+        if is_temp(c.get("id")) and _num(c.get("id")) not in in_file:
+            lendable.setdefault(_fold(c.get("name")), []).append(
+                c["id"].strip().upper())
+    taken = in_file | _taken(previous)
+    filled, minted = [], []
+    for c in clients:
+        if not needs_temp(c):
+            filled.append(c)
+            continue
+        codes = lendable.get(_fold(c.get("name")))
+        if codes:
+            code = codes.pop(0)
+        else:
+            code = _lowest_free(taken)
+            taken.add(_num(code))
+            minted.append({"id": code, "name": c.get("name"),
+                           "was": c.get("id") or ""})
+        filled.append({**c, "id": code})
+    return filled, minted
 
 
 def pending_temp(clients):
@@ -65,3 +126,12 @@ def merge_temp_clients(new_clients, current):
             if is_temp(c.get("id"))
             and (c.get("name") or "").strip().casefold() not in names]
     return list(new_clients) + kept, kept
+
+
+def merge_upload(new_clients, current):
+    """What a spreadsheet replace writes: rows with no real ID get temp codes
+    (reusing the live list's where the name matches), then temp clients
+    absent from the file are carried across. Returns (merged, kept, minted)."""
+    filled, minted = fill_temp_codes(new_clients, current)
+    merged, kept = merge_temp_clients(filled, current)
+    return merged, kept, minted
