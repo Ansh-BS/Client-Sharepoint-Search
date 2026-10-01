@@ -9,6 +9,9 @@
 </head>
 <body>
 <header class="topbar topbar-end">
+  <!-- Filled by search.js once the list loads; stays hidden at zero so the
+       bar is empty when there is nothing to chase. -->
+  <a id="temp-count" class="temp-count" href="{{ url_for('admin') }}" hidden></a>
   <nav>
     <a href="{{ url_for('admin') }}">Admin</a>
     <a href="{{ url_for('logout') }}">Log out</a>

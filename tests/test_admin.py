@@ -350,14 +350,29 @@ def test_add_client_updates_existing_by_id(admin, data_path):
 
 def test_add_client_requires_name(admin, data_path):
     resp = preview_add(admin, "", "N1")
-    assert b"Client name and Client ID required" in resp.data
+    assert b"Client name required" in resp.data
     assert load_clients(data_path) == []
 
 
-def test_add_client_requires_id(admin, data_path):
+def test_add_client_without_id_mints_a_temp_code(admin, data_path):
     resp = preview_add(admin, "New Client", "")
-    assert b"Client name and Client ID required" in resp.data
+    assert b"TEMP01" in resp.data
     assert load_clients(data_path) == []
+    confirm_add(admin)
+    clients = load_clients(data_path)
+    assert len(clients) == 1
+    assert clients[0]["id"] == "TEMP01"
+
+
+def test_add_client_without_id_twice_mints_sequential_codes(admin, data_path):
+    add_client(admin, "First Client", "")
+    add_client(admin, "Second Client", "")
+    assert [c["id"] for c in load_clients(data_path)] == ["TEMP01", "TEMP02"]
+
+
+def test_add_client_with_id_is_left_alone(admin, data_path):
+    add_client(admin, "New Client", "N1")
+    assert [c["id"] for c in load_clients(data_path)] == ["N1"]
 
 
 def test_confirm_add_client_without_preview_rejected(admin, data_path):
@@ -618,3 +633,281 @@ def test_unlock_page_says_nothing_about_a_timeout_normally(logged_in):
     resp = logged_in.get("/admin/unlock")
     assert b"inactivity" not in resp.data
 
+
+
+# --- assigning a real ID over a temporary one ------------------------------
+
+def preview_assign(client, temp_id, real_id):
+    return client.post("/admin", data={"action": "assign_code",
+                                       "temp_id": temp_id,
+                                       "real_id": real_id})
+
+
+def confirm_assign(client):
+    return client.post("/admin", data={"action": "confirm_assign_code"})
+
+
+def assign_code(client, temp_id, real_id):
+    """Full two-step assign: preview then confirm."""
+    preview_assign(client, temp_id, real_id)
+    return confirm_assign(client)
+
+
+def test_assign_preview_does_not_save(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    resp = preview_assign(admin, "TEMP01", "OAK118")
+    assert b"Review before assigning" in resp.data
+    assert load_clients(data_path)[0]["id"] == "TEMP01"
+
+
+def test_assign_replaces_the_code_in_place(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": "https://oak"}],
+                 data_path)
+    resp = assign_code(admin, "TEMP01", "OAK118")
+    assert b"OAK118" in resp.data
+    clients = load_clients(data_path)
+    # The duplicate this whole flow exists to prevent: one row, not two.
+    assert len(clients) == 1
+    assert clients[0]["id"] == "OAK118"
+    assert clients[0]["name"] == "Oakfield"
+    assert clients[0]["link"] == "https://oak"
+
+
+def test_assign_requires_a_real_id(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    resp = preview_assign(admin, "TEMP01", "")
+    assert b"Enter the real Client ID" in resp.data
+    assert load_clients(data_path)[0]["id"] == "TEMP01"
+
+
+def test_assign_rejects_another_temp_code(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    resp = preview_assign(admin, "TEMP01", "TEMP09")
+    assert b"temporary ID" in resp.data
+    assert load_clients(data_path)[0]["id"] == "TEMP01"
+
+
+def test_assign_rejects_a_code_another_client_already_has(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None},
+                  {"id": "RED341", "name": "Redwood", "link": None}], data_path)
+    resp = preview_assign(admin, "TEMP01", "red341")
+    assert b"Redwood" in resp.data
+    assert b"already" in resp.data
+    assert load_clients(data_path)[0]["id"] == "TEMP01"
+
+
+def test_assign_unknown_temp_code_is_refused(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    resp = preview_assign(admin, "TEMP09", "OAK118")
+    assert b"No client" in resp.data
+    assert load_clients(data_path)[0]["id"] == "TEMP01"
+
+
+def test_confirm_assign_without_preview_rejected(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    resp = confirm_assign(admin)
+    assert b"expired" in resp.data
+    assert load_clients(data_path)[0]["id"] == "TEMP01"
+
+
+def test_assign_refuses_if_the_row_moved_while_previewing(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    preview_assign(admin, "TEMP01", "OAK118")
+    save_clients([], data_path)          # someone removed it meanwhile
+    resp = confirm_assign(admin)
+    assert b"no longer" in resp.data
+    assert load_clients(data_path) == []
+
+
+def test_assign_is_audited(admin, data_path, caplog):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    with caplog.at_level(logging.INFO):
+        assign_code(admin, "TEMP01", "OAK118")
+    assert "assign temp='TEMP01' id='OAK118'" in caplog.text
+
+
+def test_waiting_panel_lists_clients_without_a_real_code(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None},
+                  {"id": "RED341", "name": "Redwood", "link": None}], data_path)
+    resp = admin.get("/admin")
+    assert b"awaiting a real ID" in resp.data
+    assert b"TEMP01" in resp.data
+
+
+def test_waiting_panel_heading_carries_no_count(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None},
+                  {"id": "TEMP02", "name": "Ashby", "link": None}], data_path)
+    resp = admin.get("/admin")
+    assert b"Clients awaiting a real ID" in resp.data
+    assert b"2 clients awaiting" not in resp.data
+
+
+def test_waiting_panel_has_a_find_a_client_box(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    resp = admin.get("/admin")
+    assert b"Find a client" in resp.data
+    assert b'id="temp_id"' in resp.data
+    assert b'id="real_id"' in resp.data
+
+
+def test_waiting_panel_is_one_form_not_one_per_client(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None},
+                  {"id": "TEMP02", "name": "Ashby", "link": None}], data_path)
+    resp = admin.get("/admin")
+    assert resp.data.count(b'value="assign_code"') == 1
+
+
+def test_waiting_panel_embeds_the_clients_for_the_picker(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None},
+                  {"id": "TEMP02", "name": "Ashby", "link": None},
+                  {"id": "RED341", "name": "Redwood", "link": None}], data_path)
+    resp = admin.get("/admin")
+    assert b'id="waiting-data"' in resp.data
+    assert b"Oakfield" in resp.data and b"Ashby" in resp.data
+    # Only clients awaiting an ID belong in the picker.
+    assert b"Redwood" not in resp.data
+
+
+def test_waiting_panel_sits_between_remove_and_replace(admin, data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    body = admin.get("/admin").data
+    remove = body.index(b"Remove a client")
+    waiting = body.index(b"Clients awaiting a real ID")
+    replace = body.index(b"Replace the client list")
+    assert remove < waiting < replace
+
+
+def test_waiting_panel_absent_when_nothing_is_waiting(admin, data_path):
+    save_clients([{"id": "RED341", "name": "Redwood", "link": None}], data_path)
+    resp = admin.get("/admin")
+    assert b"awaiting a real ID" not in resp.data
+
+
+# --- a spreadsheet restore must not wipe clients awaiting a code -----------
+
+def test_upload_keeps_a_temp_client_the_file_does_not_have(
+        admin, data_path, make_xlsx, tmp_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": "https://oak"}],
+                 data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("RED341", "Redwood", "https://red")])
+    upload(admin, path)
+    clients = load_clients(data_path)
+    assert sorted(c["name"] for c in clients) == ["Oakfield", "Redwood"]
+    # The kept row keeps its own link, not anything from the file.
+    kept = next(c for c in clients if c["name"] == "Oakfield")
+    assert kept["link"] == "https://oak"
+
+
+def test_upload_preview_announces_kept_temp_clients_and_not_as_dropped(
+        admin, data_path, make_xlsx, tmp_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("RED341", "Redwood", "https://red")])
+    resp = preview(admin, path)
+    assert b"awaiting a real ID" in resp.data
+    assert b"stop being findable" not in resp.data
+
+
+def test_upload_with_the_real_code_retires_the_temp_row(
+        admin, data_path, make_xlsx, tmp_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("OAK118", "Oakfield", "https://oak")])
+    upload(admin, path)
+    clients = load_clients(data_path)
+    assert len(clients) == 1
+    assert clients[0]["id"] == "OAK118"
+
+
+def test_upload_still_drops_a_real_client_missing_from_the_file(
+        admin, data_path, make_xlsx, tmp_path):
+    save_clients([{"id": "RED341", "name": "Redwood", "link": None}], data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("OAK118", "Oakfield", "https://oak")])
+    upload(admin, path)
+    assert [c["name"] for c in load_clients(data_path)] == ["Oakfield"]
+
+
+def test_upload_count_reported_includes_the_kept_clients(
+        admin, data_path, make_xlsx, tmp_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("RED341", "Redwood", "https://red")])
+    resp = upload(admin, path)
+    assert b"2 clients imported" in resp.data
+
+
+# --- two admins minting at the same time -----------------------------------
+
+def second_admin():
+    """A second, independent admin session against the same client list."""
+    c = app.app.test_client()
+    c.post("/login", data={"password": "staffpw"})
+    c.post("/admin/unlock", data={"username": "secondadmin",
+                                  "password": "adminpw"})
+    return c
+
+
+def test_two_admins_minting_at_once_do_not_collide(admin, data_path):
+    other = second_admin()
+    # Both preview against an empty list, so both are shown TEMP01.
+    preview_add(admin, "First Client", "")
+    preview_add(other, "Second Client", "")
+    confirm_add(admin)
+    confirm_add(other)
+    clients = load_clients(data_path)
+    # Neither client may be overwritten by the other's confirm.
+    assert sorted(c["name"] for c in clients) == ["First Client",
+                                                  "Second Client"]
+    assert sorted(c["id"] for c in clients) == ["TEMP01", "TEMP02"]
+
+
+def test_a_mint_that_is_still_free_keeps_the_code_it_previewed(admin,
+                                                               data_path):
+    preview_add(admin, "Only Client", "")
+    resp = confirm_add(admin)
+    assert b"TEMP01" in resp.data
+    assert load_clients(data_path)[0]["id"] == "TEMP01"
+
+
+def test_assign_refuses_a_client_that_is_not_awaiting_a_code(admin, data_path):
+    save_clients([{"id": "RED341", "name": "Redwood", "link": "https://red"}],
+                 data_path)
+    resp = preview_assign(admin, "RED341", "RED999")
+    assert b"not a temporary ID" in resp.data
+    assert load_clients(data_path)[0]["id"] == "RED341"
+
+
+def test_assign_refuses_if_the_code_was_assigned_while_previewing(admin,
+                                                                  data_path):
+    save_clients([{"id": "TEMP01", "name": "Oakfield", "link": None}],
+                 data_path)
+    preview_assign(admin, "TEMP01", "OAK118")
+    # Someone else got there first.
+    save_clients([{"id": "OAK900", "name": "Oakfield", "link": None}],
+                 data_path)
+    resp = confirm_assign(admin)
+    assert b"no longer" in resp.data
+    assert load_clients(data_path)[0]["id"] == "OAK900"
+
+
+def test_picker_payload_cannot_break_out_of_its_script_tag(admin, data_path):
+    """A client name is office-entered data sitting inside <script>.
+
+    Jinja's tojson escapes it; this pins that, because the day it stops the
+    page silently gains script injection from the add-client form.
+    """
+    save_clients([{"id": "TEMP01",
+                   "name": "</script><script>alert(1)</script>",
+                   "link": None}], data_path)
+    body = admin.get("/admin").data
+    assert b"<script>alert(1)" not in body
+    assert b"\u003c/script\u003e" in body

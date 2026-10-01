@@ -16,10 +16,13 @@
     return clientsPromise;
   }
 
-  function setupLookup(inputId, listId, onPick) {
+  // getList defaults to the whole client list; the waiting-ID picker below
+  // passes its own, so one widget serves both.
+  function setupLookup(inputId, listId, onPick, getList) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
     if (!input || !list) return;
+    const source = getList || getClients;
 
     function render(clients, query) {
       const q = query.trim().toLowerCase();
@@ -57,9 +60,9 @@
     }
 
     input.addEventListener("focus", () =>
-      getClients().then((clients) => render(clients, input.value)));
+      source().then((clients) => render(clients, input.value)));
     input.addEventListener("input", () =>
-      getClients().then((clients) => render(clients, input.value)));
+      source().then((clients) => render(clients, input.value)));
     input.addEventListener("blur", hide);
   }
 
@@ -74,4 +77,23 @@
     document.getElementById("client_id").value = c.id || "";
     document.getElementById("client_link").value = c.link || "";
   });
+
+  // Clients awaiting a real ID: same widget, over the waiting clients only.
+  // The field is filled with the temporary ID, not the name — this rewrites an
+  // ID, so it has to land on exactly the row that was picked.
+  const waitingNode = document.getElementById("waiting-data");
+  if (waitingNode) {
+    let waiting = [];
+    try {
+      waiting = JSON.parse(waitingNode.textContent) || [];
+    } catch (e) {
+      waiting = [];
+    }
+    waiting.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    setupLookup("temp_id", "waiting-suggestions", (c) => {
+      document.getElementById("temp_id").value = c.id || c.name;
+      const real = document.getElementById("real_id");
+      if (real) real.focus();
+    }, () => Promise.resolve(waiting));
+  }
 })();
