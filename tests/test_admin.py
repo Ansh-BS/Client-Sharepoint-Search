@@ -911,3 +911,39 @@ def test_picker_payload_cannot_break_out_of_its_script_tag(admin, data_path):
     body = admin.get("/admin").data
     assert b"<script>alert(1)" not in body
     assert b"\u003c/script\u003e" in body
+
+
+# --- rows with no real ID (blank, or the name typed in) get temp codes -----
+
+def test_upload_preview_announces_name_as_id_rows(
+        admin, data_path, make_xlsx, tmp_path):
+    save_clients([], data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("Acme Ltd", "Acme Ltd", None),
+                                           ("RED341", "Redwood", None)])
+    resp = preview(admin, path)
+    assert b"1 client will get a temporary ID" in resp.data
+
+
+def test_upload_gives_name_as_id_rows_a_temp_code_and_keeps_it(
+        admin, data_path, make_xlsx, tmp_path):
+    save_clients([], data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("Acme Ltd", "Acme Ltd", None),
+                                           ("RED341", "Redwood", None)])
+    resp = upload(admin, path)
+    assert b"given a temporary ID" in resp.data
+    first = load_clients(data_path)
+    assert {c["name"]: c["id"] for c in first} == {"Acme Ltd": "TEMP01",
+                                                   "Redwood": "RED341"}
+    # Re-uploading the same file must not churn the code or flag a drop.
+    resp = preview(admin, path)
+    assert b"stop being findable" not in resp.data
+    assert b"temporary ID" not in resp.data
+    upload(admin, path)
+    assert load_clients(data_path) == first
+
+
+def test_upload_does_not_touch_a_real_id(admin, data_path, make_xlsx, tmp_path):
+    save_clients([], data_path)
+    path = make_xlsx(tmp_path / "u.xlsx", [("ans108", "ansh", None)])
+    upload(admin, path)
+    assert load_clients(data_path)[0]["id"] == "ans108"

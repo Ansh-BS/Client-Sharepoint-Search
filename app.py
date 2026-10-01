@@ -18,8 +18,8 @@ from flask_limiter.util import get_remote_address
 import presence
 from storage import (discard_pending, load_clients, load_pending,
                      save_clients, save_pending)
-from temp_codes import (is_temp, merge_temp_clients, next_temp_code,
-                       pending_temp)
+from temp_codes import (is_temp, merge_upload, next_temp_code,
+                        pending_temp)
 from xlsx_parser import ParseError, parse_xlsx
 
 load_dotenv()
@@ -364,7 +364,7 @@ def _replace_preview(new_clients, token, current):
     the commit that will actually happen — a client awaiting a code is kept,
     and must not be listed as about to stop being findable.
     """
-    merged, kept = merge_temp_clients(new_clients, current)
+    merged, kept, minted = merge_upload(new_clients, current)
     dropped, added = _diff_clients(current, merged)
     return {
         "kind": "replace",
@@ -375,6 +375,7 @@ def _replace_preview(new_clients, token, current):
         "dropped": [c["name"] for c in dropped],
         "missing": [c["name"] for c in merged if not c["link"]],
         "kept_temp": [c["name"] for c in kept],
+        "minted": [c["name"] for c in minted],
         }
 
 
@@ -483,17 +484,18 @@ def admin():
                         preview = _replace_preview(clients, token, current)
                         preview["stale"] = True
                     else:
-                        merged, kept = merge_temp_clients(clients, current)
+                        merged, kept, minted = merge_upload(clients, current)
                         save_clients(merged)
                         discard_pending(token)
                         session.pop("pending_upload", None)
                         session.pop("pending_basis", None)
-                        _audit("replace clients=%d kept_temp=%d",
-                               len(merged), len(kept))
+                        _audit("replace clients=%d kept_temp=%d minted=%d",
+                               len(merged), len(kept), len(minted))
                         missing = [c["name"] for c in merged if not c["link"]]
                         result = {"kind": "replace", "count": len(merged),
                                   "missing": missing,
-                                  "kept_temp": [c["name"] for c in kept]}
+                                  "kept_temp": [c["name"] for c in kept],
+                                  "minted": [c["name"] for c in minted]}
 
         elif action == "add_client":
             name = request.form.get("client_name", "").strip()

@@ -1,4 +1,5 @@
-from temp_codes import (is_temp, merge_temp_clients, next_temp_code,
+from temp_codes import (fill_temp_codes, is_temp, merge_temp_clients,
+                        merge_upload, needs_temp, next_temp_code,
                         pending_temp)
 
 
@@ -113,3 +114,64 @@ def test_merge_does_not_mutate_the_parsed_list():
     merged, _ = merge_temp_clients(new, current)
     assert len(new) == 1
     assert len(merged) == 2
+
+
+# --- needs_temp / fill_temp_codes ------------------------------------------
+
+def test_needs_temp_for_blank_or_name_as_id():
+    assert needs_temp(c("", "Acme Ltd"))
+    assert needs_temp(c(None, "Acme Ltd"))
+    assert needs_temp(c("  acme ltd ", "Acme Ltd"))
+
+
+def test_needs_temp_leaves_real_temp_and_odd_codes_alone():
+    assert not needs_temp(c("RED341", "Redwood"))
+    assert not needs_temp(c("TEMP01", "Oakfield"))
+    assert not needs_temp(c("ans108", "ansh"))
+
+
+def test_fill_mints_distinct_codes_skipping_taken_numbers():
+    clients = [c("TEMP01", "Oak"), c("Acme", "Acme"), c("", "Beta"),
+               c("RED341", "Redwood")]
+    filled, minted = fill_temp_codes(clients)
+    assert [x["id"] for x in filled] == ["TEMP01", "TEMP02", "TEMP03", "RED341"]
+    assert minted == [{"id": "TEMP02", "name": "Acme", "was": "Acme"},
+                      {"id": "TEMP03", "name": "Beta", "was": ""}]
+
+
+def test_fill_does_not_modify_its_input():
+    clients = [c("Acme", "Acme", "https://a")]
+    filled, _ = fill_temp_codes(clients)
+    assert clients == [c("Acme", "Acme", "https://a")]
+    assert filled == [c("TEMP01", "Acme", "https://a")]
+
+
+def test_fill_reuses_a_previous_temp_code_by_name():
+    previous = [c("TEMP07", "Acme Ltd")]
+    filled, minted = fill_temp_codes([c("Acme Ltd", "acme ltd")], previous)
+    assert filled[0]["id"] == "TEMP07"
+    assert minted == []
+
+
+def test_fill_lends_each_previous_code_once():
+    previous = [c("TEMP01", "Acme")]
+    filled, minted = fill_temp_codes([c("Acme", "Acme"), c("", "Acme")],
+                                     previous)
+    assert [x["id"] for x in filled] == ["TEMP01", "TEMP02"]
+    assert [m["id"] for m in minted] == ["TEMP02"]
+
+
+def test_fill_does_not_lend_a_code_the_file_already_uses():
+    previous = [c("TEMP01", "Acme")]
+    filled, _ = fill_temp_codes([c("TEMP01", "Other"), c("Acme", "Acme")],
+                                previous)
+    assert [x["id"] for x in filled] == ["TEMP01", "TEMP02"]
+
+
+def test_merge_upload_is_stable_across_reuploads():
+    file_rows = [c("Acme", "Acme"), c("RED341", "Redwood")]
+    first, _, minted = merge_upload(file_rows, [])
+    assert [m["id"] for m in minted] == ["TEMP01"]
+    second, kept, minted = merge_upload(file_rows, first)
+    assert second == first
+    assert kept == [] and minted == []

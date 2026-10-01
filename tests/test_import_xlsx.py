@@ -29,3 +29,14 @@ def test_cli_import_lets_the_file_retire_a_temp_row(
     clients = load_clients(data_path)
     assert len(clients) == 1
     assert clients[0]["id"] == "OAK118"
+
+
+def test_cli_import_gives_name_as_id_rows_a_temp_code(
+        data_path, make_xlsx, tmp_path, monkeypatch, capsys):
+    path = make_xlsx(tmp_path / "u.xlsx", [("Acme Ltd", "Acme Ltd", None),
+                                           ("RED341", "Redwood", None)])
+    monkeypatch.setattr("sys.argv", ["import_xlsx.py", str(path)])
+    import_xlsx.main()
+    ids = {c["name"]: c["id"] for c in load_clients(data_path)}
+    assert ids == {"Acme Ltd": "TEMP01", "Redwood": "RED341"}
+    assert "given a temp ID: TEMP01  Acme Ltd" in capsys.readouterr().out
